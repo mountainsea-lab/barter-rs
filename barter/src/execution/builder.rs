@@ -20,6 +20,9 @@ use barter_execution::{
     indexer::AccountEventIndexer,
     map::generate_execution_instrument_map,
 };
+use barter_instrument::instrument::kind::future::FutureContract;
+use barter_instrument::instrument::kind::option::OptionContract;
+use barter_instrument::instrument::kind::perpetual::PerpetualContract;
 use barter_instrument::{
     Keyed, Underlying,
     asset::{AssetIndex, name::AssetNameExchange},
@@ -386,6 +389,112 @@ impl IntoIterator for ExecutionHandles {
     }
 }
 
+// fn generate_mock_exchange_instruments(
+//     instruments: &IndexedInstruments,
+//     exchange: ExchangeId,
+// ) -> FnvHashMap<InstrumentNameExchange, Instrument<ExchangeId, AssetNameExchange>> {
+//     instruments
+//         .instruments()
+//         .iter()
+//         .filter_map(
+//             |Keyed {
+//                  key: _,
+//                  value: instrument,
+//              }| {
+//                 if instrument.exchange.value != exchange {
+//                     return None;
+//                 }
+//
+//                 let Instrument {
+//                     exchange,
+//                     name_internal,
+//                     name_exchange,
+//                     underlying,
+//                     quote,
+//                     kind,
+//                     spec,
+//                 } = instrument;
+//
+//                 let kind = match kind {
+//                     InstrumentKind::Spot => InstrumentKind::Spot,
+//                     unsupported => {
+//                         panic!("MockExchange does not support: {unsupported:?}")
+//                     }
+//                 };
+//
+//                 let spec = match spec {
+//                     Some(spec) => {
+//                         let InstrumentSpec {
+//                             price,
+//                             quantity:
+//                                 InstrumentSpecQuantity {
+//                                     unit,
+//                                     min,
+//                                     increment,
+//                                 },
+//                             notional,
+//                         } = spec;
+//
+//                         let unit = match unit {
+//                             OrderQuantityUnits::Asset(asset) => {
+//                                 let quantity_asset = instruments
+//                                     .find_asset(*asset)
+//                                     .unwrap()
+//                                     .asset
+//                                     .name_exchange
+//                                     .clone();
+//                                 OrderQuantityUnits::Asset(quantity_asset)
+//                             }
+//                             OrderQuantityUnits::Contract => OrderQuantityUnits::Contract,
+//                             OrderQuantityUnits::Quote => OrderQuantityUnits::Quote,
+//                         };
+//
+//                         Some(InstrumentSpec {
+//                             price: *price,
+//                             quantity: InstrumentSpecQuantity {
+//                                 unit,
+//                                 min: *min,
+//                                 increment: *increment,
+//                             },
+//                             notional: *notional,
+//                         })
+//                     }
+//                     None => None,
+//                 };
+//
+//                 let underlying_base = instruments
+//                     .find_asset(underlying.base)
+//                     .unwrap()
+//                     .asset
+//                     .name_exchange
+//                     .clone();
+//
+//                 let underlying_quote = instruments
+//                     .find_asset(underlying.quote)
+//                     .unwrap()
+//                     .asset
+//                     .name_exchange
+//                     .clone();
+//
+//                 let instrument = Instrument {
+//                     exchange: exchange.value,
+//                     name_internal: name_internal.clone(),
+//                     name_exchange: name_exchange.clone(),
+//                     underlying: Underlying {
+//                         base: underlying_base,
+//                         quote: underlying_quote,
+//                     },
+//                     quote: *quote,
+//                     kind,
+//                     spec,
+//                 };
+//
+//                 Some((instrument.name_exchange.clone(), instrument))
+//             },
+//         )
+//         .collect()
+// }
+
 fn generate_mock_exchange_instruments(
     instruments: &IndexedInstruments,
     exchange: ExchangeId,
@@ -414,9 +523,40 @@ fn generate_mock_exchange_instruments(
 
                 let kind = match kind {
                     InstrumentKind::Spot => InstrumentKind::Spot,
-                    unsupported => {
-                        panic!("MockExchange does not support: {unsupported:?}")
+                    InstrumentKind::Perpetual(contract) => {
+                        InstrumentKind::Perpetual(PerpetualContract {
+                            contract_size: contract.contract_size,
+                            settlement_asset: instruments
+                                .find_asset(contract.settlement_asset)
+                                .unwrap()
+                                .asset
+                                .name_exchange
+                                .clone(),
+                        })
                     }
+                    InstrumentKind::Future(contract) => InstrumentKind::Future(FutureContract {
+                        contract_size: contract.contract_size,
+                        settlement_asset: instruments
+                            .find_asset(contract.settlement_asset)
+                            .unwrap()
+                            .asset
+                            .name_exchange
+                            .clone(),
+                        expiry: contract.expiry,
+                    }),
+                    InstrumentKind::Option(contract) => InstrumentKind::Option(OptionContract {
+                        contract_size: contract.contract_size,
+                        settlement_asset: instruments
+                            .find_asset(contract.settlement_asset)
+                            .unwrap()
+                            .asset
+                            .name_exchange
+                            .clone(),
+                        kind: contract.kind,
+                        exercise: contract.exercise,
+                        expiry: contract.expiry,
+                        strike: contract.strike,
+                    }),
                 };
 
                 let spec = match spec {

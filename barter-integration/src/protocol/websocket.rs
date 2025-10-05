@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio_socks::tcp::Socks5Stream;
 use tokio_tungstenite::{
-    Connector, MaybeTlsStream, client_async_tls_with_config, connect_async,
+    Connector, client_async_tls_with_config, connect_async,
     tungstenite::{
         Utf8Bytes,
         client::IntoClientRequest,
