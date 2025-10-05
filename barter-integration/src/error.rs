@@ -44,6 +44,9 @@ pub enum SocketError {
     #[error("WebSocket error: {0}")]
     WebSocket(Box<tokio_tungstenite::tungstenite::Error>),
 
+    #[error("WebSocksSocket error: {0}")]
+    WebSocksSocket(#[from] tokio_socks::Error),
+
     #[error("HTTP error: {0}")]
     Http(reqwest::Error),
 
@@ -67,5 +70,11 @@ impl From<reqwest::Error> for SocketError {
             error if error.is_timeout() => SocketError::HttpTimeout(error),
             error => SocketError::Http(error),
         }
+    }
+}
+
+impl From<tokio_tungstenite::tungstenite::Error> for SocketError {
+    fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
+        SocketError::WebSocket(Box::new(err))
     }
 }

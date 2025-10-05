@@ -1,6 +1,8 @@
 use crate::SocketError;
-use futures::Stream;
+use futures::{Sink, Stream};
 use serde::de::DeserializeOwned;
+use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::tungstenite::Message;
 
 /// Contains useful `WebSocket` type aliases and a default `WebSocket` implementation of a
 /// [`StreamParser`].
@@ -22,4 +24,21 @@ pub trait StreamParser {
     ) -> Option<Result<Output, SocketError>>
     where
         Output: DeserializeOwned;
+}
+
+// 定义组合 trait
+pub trait WebSocketStreamExt:
+    Stream<Item = tungstenite::Result<Message>>
+    + Sink<Message, Error = tokio_tungstenite::tungstenite::Error>
+    + Unpin
+    + Send
+{
+}
+
+impl<T> WebSocketStreamExt for T where
+    T: Stream<Item = tungstenite::Result<Message>>
+        + Sink<Message, Error = tokio_tungstenite::tungstenite::Error>
+        + Unpin
+        + Send
+{
 }

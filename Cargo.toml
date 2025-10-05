@@ -41,8 +41,12 @@ serde_urlencoded = { version = "0.7.1" }
 
 # Protocol
 url = { version = "2.5.4" }
-reqwest = { version = "0.12.9",default-features = false, features = ["rustls-tls", "json"] }
-tokio-tungstenite = { version = "0.26.0", features = ["url","rustls-tls-webpki-roots"] }
+reqwest = { version = "0.12.23",default-features = false, features = ["rustls-tls", "json"] }
+#tokio-tungstenite = { version = "0.26.0", features = ["url","rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.26.0", default-features = false, features = ["url","rustls-tls-webpki-roots", "connect"] }
+rustls = { version = "0.23.26", default-features = false, features = ["ring"] }
+webpki-roots = "0.26"
+tokio-socks = "0.5"
 
 # Data Structures
 vecmap-rs = { version = "0.2.2" }

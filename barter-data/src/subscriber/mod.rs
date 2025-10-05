@@ -15,7 +15,7 @@ use barter_integration::{
 };
 use futures::SinkExt;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::fmt;
 use tracing::debug;
 
 /// [`SubscriptionMapper`] implementations defining how to map a
@@ -42,11 +42,20 @@ pub trait Subscriber {
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>;
 }
 
-#[derive(Debug)]
 pub struct Subscribed<InstrumentKey> {
     pub websocket: WebSocket,
     pub map: Map<InstrumentKey>,
     pub buffered_websocket_events: Vec<WsMessage>,
+}
+
+impl<InstrumentKey: fmt::Debug> fmt::Debug for Subscribed<InstrumentKey> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Subscribed")
+            .field("websocket", &"<WebSocket>") // trait object 无法直接 Debug
+            .field("map", &self.map)
+            .field("buffered_websocket_events", &self.buffered_websocket_events)
+            .finish()
+    }
 }
 
 /// Standard [`Subscriber`] for [`WebSocket`]s suitable for most exchanges.

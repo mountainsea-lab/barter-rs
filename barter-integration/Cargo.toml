@@ -51,6 +51,9 @@ smol_str = { workspace = true, features = ["serde"]}
 tokio-tungstenite = { workspace = true }
 reqwest = { workspace = true }
 url = { workspace = true }
+rustls = { workspace = true }
+webpki-roots = { workspace = true }
+tokio-socks = { workspace = true }
 
 # Cryptographic Signatures
 hmac = { workspace = true }
