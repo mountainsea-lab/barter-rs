@@ -32,7 +32,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use barter_integration::protocol::websocket::{WebSocketSerdeParser, WsMessage};
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use serde_json::json;
@@ -64,6 +64,9 @@ pub mod validator;
 /// See docs: <https://docs.bitfinex.com/docs/ws-general>
 pub const BASE_URL_BITFINEX: &str = "wss://api-pub.bitfinex.com/ws/2";
 
+/// Convenient type alias for a Bitfinex [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
+pub type BitfinexWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
+
 /// [`Bitfinex`] exchange.
 ///
 /// See docs: <https://docs.bitfinex.com/docs/ws-general>
@@ -91,8 +94,8 @@ impl Connector for Bitfinex {
     type SubValidator = BitfinexWebSocketSubValidator;
     type SubResponse = BitfinexPlatformEvent;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(BASE_URL_BITFINEX).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(BASE_URL_BITFINEX)
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
@@ -117,7 +120,7 @@ where
     Instrument: InstrumentData,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream = ExchangeWsStream<
+    type Stream = BitfinexWsStream<
         StatelessTransformer<Self, Instrument::Key, PublicTrades, BitfinexMessage>,
     >;
 }

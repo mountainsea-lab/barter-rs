@@ -11,7 +11,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use barter_integration::protocol::websocket::{WebSocketSerdeParser, WsMessage};
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use serde_json::json;
@@ -36,6 +36,9 @@ pub mod trade;
 ///
 /// See docs: <https://docs.cloud.coinbase.com/exchange/docs/websocket-overview>
 pub const BASE_URL_COINBASE: &str = "wss://ws-feed.exchange.coinbase.com";
+
+/// Convenient type alias for a Coinbase [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
+pub type CoinbaseWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// [`Coinbase`] exchange.
 ///
@@ -64,8 +67,8 @@ impl Connector for Coinbase {
     type SubValidator = WebSocketSubValidator;
     type SubResponse = CoinbaseSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(BASE_URL_COINBASE).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(BASE_URL_COINBASE)
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
@@ -91,5 +94,5 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, CoinbaseTrade>>;
+        CoinbaseWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, CoinbaseTrade>>;
 }

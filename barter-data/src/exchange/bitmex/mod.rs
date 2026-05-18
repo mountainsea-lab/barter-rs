@@ -14,7 +14,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use barter_integration::protocol::websocket::{WebSocketSerdeParser, WsMessage};
 use derive_more::Display;
 use serde::de::{Error, Unexpected};
 use std::fmt::Debug;
@@ -38,6 +38,9 @@ pub mod subscription;
 /// Public trade types for [`Bitmex`].
 pub mod trade;
 
+/// Convenient type alias for a Bitmex [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
+pub type BitmexWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
+
 /// [`Bitmex`] server base url.
 ///
 /// See docs: <https://www.bitmex.com/app/wsAPI>
@@ -54,8 +57,8 @@ impl Connector for Bitmex {
     type SubValidator = WebSocketSubValidator;
     type SubResponse = BitmexSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(BASE_URL_BITMEX).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(BASE_URL_BITMEX)
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
@@ -84,7 +87,7 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BitmexTrade>>;
+        BitmexWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BitmexTrade>>;
 }
 
 impl<'de> serde::Deserialize<'de> for Bitmex {

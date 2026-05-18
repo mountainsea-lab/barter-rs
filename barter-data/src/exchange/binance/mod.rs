@@ -11,7 +11,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use barter_integration::protocol::websocket::{WebSocketSerdeParser, WsMessage};
 use std::{fmt::Debug, marker::PhantomData};
 use url::Url;
 
@@ -44,6 +44,9 @@ pub mod subscription;
 /// [`BinanceFuturesUsd`](futures::BinanceFuturesUsd).
 pub mod trade;
 
+/// Convenient type alias for a Binance [`ExchangeWsStream`] using [`WebSocketSerdeParser`].
+pub type BinanceWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
+
 /// Generic [`Binance<Server>`](Binance) exchange.
 ///
 /// ### Notes
@@ -65,8 +68,8 @@ where
     type SubValidator = WebSocketSubValidator;
     type SubResponse = BinanceSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(Server::websocket_url()).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(Server::websocket_url())
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
@@ -106,7 +109,7 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BinanceTrade>>;
+        BinanceWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BinanceTrade>>;
 }
 
 impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Binance<Server>
@@ -115,7 +118,7 @@ where
     Server: ExchangeServer + Debug + Send + Sync,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream = ExchangeWsStream<
+    type Stream = BinanceWsStream<
         StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BinanceOrderBookL1>,
     >;
 }

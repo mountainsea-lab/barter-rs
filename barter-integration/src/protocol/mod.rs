@@ -1,8 +1,6 @@
-use crate::SocketError;
+use crate::error::SocketError;
 use futures::{Sink, Stream};
-use serde::de::DeserializeOwned;
-use tokio_tungstenite::tungstenite;
-use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::{self, Message};
 
 /// Contains useful `WebSocket` type aliases and a default `WebSocket` implementation of a
 /// [`StreamParser`].
@@ -14,19 +12,15 @@ pub mod http;
 
 /// `StreamParser`s are capable of parsing the input messages from a given stream protocol
 /// (eg/ WebSocket, Financial Information eXchange (FIX), etc.) and deserialising into an `Output`.
-pub trait StreamParser {
+pub trait StreamParser<Output> {
     type Stream: Stream;
     type Message;
     type Error;
 
-    fn parse<Output>(
-        input: Result<Self::Message, Self::Error>,
-    ) -> Option<Result<Output, SocketError>>
-    where
-        Output: DeserializeOwned;
+    fn parse(input: Result<Self::Message, Self::Error>) -> Option<Result<Output, SocketError>>;
 }
 
-// 定义组合 trait
+/// Trait alias for WebSocket streams backed by either a direct connection or a proxied connection.
 pub trait WebSocketStreamExt:
     Stream<Item = tungstenite::Result<Message>>
     + Sink<Message, Error = tokio_tungstenite::tungstenite::Error>

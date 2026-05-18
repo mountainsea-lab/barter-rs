@@ -8,8 +8,14 @@ use std::{
     task::{Context, Poll},
 };
 
-pub mod indexed;
-pub mod merge;
+/// Data stream abstractions and configuration.
+pub mod data;
+
+/// Stream extension traits.
+pub mod ext;
+
+/// Stream utility functions.
+pub mod util;
 
 /// An [`ExchangeStream`] is a communication protocol agnostic [`Stream`]. It polls protocol
 /// messages from the inner [`Stream`], and transforms them into the desired output data structure.
@@ -17,7 +23,7 @@ pub mod merge;
 #[pin_project]
 pub struct ExchangeStream<Protocol, InnerStream, StreamTransformer>
 where
-    Protocol: StreamParser,
+    Protocol: StreamParser<StreamTransformer::Input>,
     InnerStream: Stream,
     StreamTransformer: Transformer,
 {
@@ -31,7 +37,7 @@ where
 impl<Protocol, InnerStream, StreamTransformer> Stream
     for ExchangeStream<Protocol, InnerStream, StreamTransformer>
 where
-    Protocol: StreamParser,
+    Protocol: StreamParser<StreamTransformer::Input>,
     InnerStream: Stream<Item = Result<Protocol::Message, Protocol::Error>> + Unpin,
     StreamTransformer: Transformer,
     StreamTransformer::Error: From<SocketError>,
@@ -53,7 +59,7 @@ where
             };
 
             // Parse input protocol message into `ExchangeMessage`
-            let exchange_message = match Protocol::parse::<StreamTransformer::Input>(input) {
+            let exchange_message = match Protocol::parse(input) {
                 // `StreamParser` successfully deserialised `ExchangeMessage`
                 Some(Ok(exchange_message)) => exchange_message,
 
@@ -81,7 +87,7 @@ where
 impl<Protocol, InnerStream, StreamTransformer>
     ExchangeStream<Protocol, InnerStream, StreamTransformer>
 where
-    Protocol: StreamParser,
+    Protocol: StreamParser<StreamTransformer::Input>,
     InnerStream: Stream,
     StreamTransformer: Transformer,
 {
