@@ -41,11 +41,12 @@ async fn main() {
         ],
 
         // Batch notes:
-        // Since batch contains 1 ExchangeId and 3 SubscriptionKinds, 3 (1x3) WebSocket connections
+        // Since batch contains 1 ExchangeId and 4 SubscriptionKinds, 4 (1x4) WebSocket connections
         // will be spawned for this batch (back-end requires to further split).
         vec![
             (BinanceFuturesUsd, "btc", "usdt", Perpetual, PublicTrades),
             (BinanceFuturesUsd, "btc", "usdt", Perpetual, OrderBooksL1),
+            (BinanceFuturesUsd, "btc", "usdt", Perpetual, Candles),
             (BinanceFuturesUsd, "btc", "usdt", Perpetual, Liquidations),
 
         ],
