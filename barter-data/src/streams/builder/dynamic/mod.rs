@@ -25,6 +25,7 @@ use crate::{
     subscription::{
         SubKind, Subscription,
         book::{OrderBookEvent, OrderBookL1, OrderBooksL1, OrderBooksL2},
+        candle::{Candle, Candles},
         liquidation::{Liquidation, Liquidations},
         trade::{PublicTrade, PublicTrades},
     },
@@ -58,6 +59,8 @@ pub struct DynamicStreams<InstrumentKey> {
         ExchangeId,
         UnboundedReceiverStream<MarketStreamResult<InstrumentKey, OrderBookEvent>>,
     >,
+    pub candles:
+        VecMap<ExchangeId, UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Candle>>>,
     pub liquidations:
         VecMap<ExchangeId, UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Liquidation>>>,
 }
@@ -87,6 +90,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
+        Subscription<BinanceFuturesUsd, Instrument, Candles>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, Liquidations>: Identifier<BinanceMarket>,
         Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
         Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexMarket>,
@@ -244,6 +248,26 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         .map(|stream| {
                                             tokio::spawn(stream.forward_to(
                                                 txs.l2s.get(&exchange).unwrap().clone(),
+                                            ))
+                                        })
+                                    }
+                                    (ExchangeId::BinanceFuturesUsd, SubKind::Candles) => {
+                                        init_market_stream(
+                                            STREAM_RECONNECTION_POLICY,
+                                            subs.into_iter()
+                                                .map(|sub| {
+                                                    Subscription::<_, Instrument, _>::new(
+                                                        BinanceFuturesUsd::default(),
+                                                        sub.instrument,
+                                                        Candles,
+                                                    )
+                                                })
+                                                .collect(),
+                                        )
+                                        .await
+                                        .map(|stream| {
+                                            tokio::spawn(stream.forward_to(
+                                                txs.candles.get(&exchange).unwrap().clone(),
                                             ))
                                         })
                                     }
@@ -654,6 +678,12 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                 .into_iter()
                 .map(|(exchange, rx)| (exchange, rx.into_stream()))
                 .collect(),
+            candles: channels
+                .rxs
+                .candles
+                .into_iter()
+                .map(|(exchange, rx)| (exchange, rx.into_stream()))
+                .collect(),
             liquidations: channels
                 .rxs
                 .liquidations
@@ -717,6 +747,26 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         futures_util::stream::select_all::select_all(std::mem::take(&mut self.l2s).into_values())
     }
 
+    /// Remove an exchange [`Candle`] `Stream` from the [`DynamicStreams`] collection.
+    ///
+    /// Note that calling this method will permanently remove this `Stream` from [`Self`].
+    pub fn select_candles(
+        &mut self,
+        exchange: ExchangeId,
+    ) -> Option<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Candle>>> {
+        self.candles.remove(&exchange)
+    }
+
+    /// Select and merge every exchange [`Candle`] `Stream` using
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
+    pub fn select_all_candles(
+        &mut self,
+    ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Candle>>> {
+        futures_util::stream::select_all::select_all(
+            std::mem::take(&mut self.candles).into_values(),
+        )
+    }
+
     /// Remove an exchange [`Liquidation`] `Stream` from the [`DynamicStreams`] collection.
     ///
     /// Note that calling this method will permanently remove this `Stream` from [`Self`].
@@ -748,12 +798,14 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         MarketStreamResult<InstrumentKey, PublicTrade>: Into<Output>,
         MarketStreamResult<InstrumentKey, OrderBookL1>: Into<Output>,
         MarketStreamResult<InstrumentKey, OrderBookEvent>: Into<Output>,
+        MarketStreamResult<InstrumentKey, Candle>: Into<Output>,
         MarketStreamResult<InstrumentKey, Liquidation>: Into<Output>,
     {
         let Self {
             trades,
             l1s,
             l2s,
+            candles,
             liquidations,
         } = self;
 
@@ -769,11 +821,19 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
             .into_values()
             .map(|stream| stream.map(MarketStreamResult::into).boxed());
 
+        let candles = candles
+            .into_values()
+            .map(|stream| stream.map(MarketStreamResult::into).boxed());
+
         let liquidations = liquidations
             .into_values()
             .map(|stream| stream.map(MarketStreamResult::into).boxed());
 
-        let all = trades.chain(l1s).chain(l2s).chain(liquidations);
+        let all = trades
+            .chain(l1s)
+            .chain(l2s)
+            .chain(candles)
+            .chain(liquidations);
 
         futures_util::stream::select_all::select_all(all)
     }
@@ -859,6 +919,16 @@ where
                         rxs.l2s.insert(sub.exchange, rx);
                     }
                 }
+                SubKind::Candles => {
+                    if let (None, None) = (
+                        txs.candles.get(&sub.exchange),
+                        rxs.candles.get(&sub.exchange),
+                    ) {
+                        let (tx, rx) = mpsc_unbounded();
+                        txs.candles.insert(sub.exchange, tx);
+                        rxs.candles.insert(sub.exchange, rx);
+                    }
+                }
                 SubKind::Liquidations => {
                     if let (None, None) = (
                         txs.liquidations.get(&sub.exchange),
@@ -884,6 +954,7 @@ struct Txs<InstrumentKey> {
     trades: FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, PublicTrade>>>,
     l1s: FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, OrderBookL1>>>,
     l2s: FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, OrderBookEvent>>>,
+    candles: FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, Candle>>>,
     liquidations:
         FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, Liquidation>>>,
 }
@@ -894,6 +965,7 @@ impl<InstrumentKey> Default for Txs<InstrumentKey> {
             trades: Default::default(),
             l1s: Default::default(),
             l2s: Default::default(),
+            candles: Default::default(),
             liquidations: Default::default(),
         }
     }
@@ -903,6 +975,7 @@ struct Rxs<InstrumentKey> {
     trades: FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, PublicTrade>>>,
     l1s: FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, OrderBookL1>>>,
     l2s: FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, OrderBookEvent>>>,
+    candles: FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, Candle>>>,
     liquidations:
         FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, Liquidation>>>,
 }
@@ -913,6 +986,7 @@ impl<InstrumentKey> Default for Rxs<InstrumentKey> {
             trades: Default::default(),
             l1s: Default::default(),
             l2s: Default::default(),
+            candles: Default::default(),
             liquidations: Default::default(),
         }
     }
