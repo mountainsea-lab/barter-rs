@@ -8,6 +8,14 @@
 
 **Tech Stack:** Rust 2024, `barter-data`, `barter-integration`, `barter-instrument`, `serde`, `chrono`, `tokio`, `futures`, existing `rtk cargo test` workflow.
 
+## Confirmed Design Decisions
+
+1. **Interval scope:** implement realtime `1m` Binance USD-M Futures candles only. Use `@kline_1m` and defer multi-interval subscription design until a later task.
+2. **Validation level:** automated completion requires parser/conversion tests, support matrix tests, DynamicStreams compile coverage, full `barter-data` tests, workspace check, and example compile coverage. Live Binance WebSocket smoke testing is useful manually but not a required automated gate.
+3. **Commit strategy:** do not commit red-test checkpoints. Keep local TDD workflow if useful, but commit only green, focused checkpoints.
+4. **DynamicStreams ordering:** include candles in `select_all` as `trades -> l1s -> l2s -> candles -> liquidations`.
+5. **Example acceptance:** examples must follow existing examples style, compile, and be manually runnable so logs can show real Binance candle data. Automated verification should not require receiving live data.
+
 ---
 
 ## File Structure

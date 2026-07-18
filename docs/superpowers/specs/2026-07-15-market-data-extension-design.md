@@ -249,6 +249,16 @@ Each task should include:
 
 For numeric values, new models should prefer `Decimal`. If a provider raw field is a string, parsing should preserve precision and avoid intermediate `f64`.
 
+### Binance USD-M Futures Candle Scope Decisions
+
+The first Binance USD-M Futures candle implementation should use these concrete decisions:
+
+1. **Interval scope:** implement only realtime `1m` candles in this task. The Binance channel should be represented as `@kline_1m`. Multi-interval realtime subscriptions should be designed later after the single-interval path proves the wiring.
+2. **Validation level:** require fixture parser tests, normalized conversion tests, support matrix tests, DynamicStreams compile coverage, full `barter-data` tests, workspace check, and example compile coverage. Do not require live Binance WebSocket smoke tests for automated completion because they depend on network and provider availability.
+3. **Commit strategy:** do not commit red-test checkpoints. Tests may be written before implementation locally, but each committed checkpoint should compile and pass its focused verification.
+4. **DynamicStreams ordering:** when candles are included in `DynamicStreams::select_all`, merge streams in the order `trades -> l1s -> l2s -> candles -> liquidations`. This preserves the existing market-data grouping and places bars after book data but before liquidation events.
+5. **Example acceptance:** examples must compile and should follow the existing examples style so a developer can run them manually and inspect real Binance candle data through logs. Automated verification should stop at `cargo check --examples`, not assert that live data was received.
+
 ## Acceptance Criteria
 
 A task is complete only when:
@@ -258,7 +268,7 @@ A task is complete only when:
 - The normalized event can be consumed through existing stream/fetch patterns.
 - Dynamic multi-stream selection includes the data type when it is streamable.
 - The support matrix accurately reflects availability.
-- Examples compile.
+- Examples compile and can be run manually to inspect real provider data through logs when network access is available.
 - Existing tests continue to pass.
 
 ## First Implementation Plan Target
