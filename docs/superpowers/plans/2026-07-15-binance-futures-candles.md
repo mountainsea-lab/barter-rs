@@ -63,7 +63,7 @@
 **Files:**
 - Create: `barter-data/src/exchange/binance/futures/candle.rs`
 
-- [ ] **Step 1: Write the raw parser and conversion tests first**
+- [x] **Step 1: Write the raw parser and conversion tests first**
 
 Create `barter-data/src/exchange/binance/futures/candle.rs` with this complete file:
 
@@ -248,7 +248,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run parser tests and verify the expected module import failure**
+- [x] **Step 2: Skipped red parser failure check per confirmed commit strategy**
 
 Run:
 
@@ -258,7 +258,7 @@ rtk cargo test -p barter-data binance_futures_kline -- --nocapture
 
 Expected result: compile failure because `BinanceChannel::CANDLES_1M` and the module export do not exist yet.
 
-- [ ] **Step 3: Commit the failing test file if working with TDD checkpoint commits is allowed**
+- [x] **Step 3: Skipped failing test commit per confirmed commit strategy**
 
 If committing red tests is not desired in this repository, skip this commit and continue to Task 2. If committing red tests is allowed, run:
 
@@ -275,7 +275,7 @@ rtk git commit -m "test(data): add binance futures candle parser coverage"
 - Modify: `barter-data/src/exchange/binance/channel.rs`
 - Modify: `barter-data/src/exchange/binance/futures/mod.rs`
 
-- [ ] **Step 1: Update `channel.rs` imports**
+- [x] **Step 1: Update `channel.rs` imports**
 
 Change the subscription import block in `barter-data/src/exchange/binance/channel.rs` to include `candle::Candles`:
 
@@ -289,7 +289,7 @@ Change the subscription import block in `barter-data/src/exchange/binance/channe
     },
 ```
 
-- [ ] **Step 2: Add Binance candle channel constant**
+- [x] **Step 2: Add Binance candle channel constant**
 
 Add this constant inside `impl BinanceChannel`, after `ORDER_BOOK_L2` and before `LIQUIDATIONS`:
 
@@ -300,7 +300,7 @@ Add this constant inside `impl BinanceChannel`, after `ORDER_BOOK_L2` and before
     pub const CANDLES_1M: Self = Self("@kline_1m");
 ```
 
-- [ ] **Step 3: Add channel identifier for Binance USD-M candles**
+- [x] **Step 3: Add channel identifier for Binance USD-M candles**
 
 Add this impl after the `OrderBooksL2` identifier impl and before the `Liquidations` impl:
 
@@ -312,7 +312,7 @@ impl<Instrument> Identifier<BinanceChannel> for Subscription<BinanceFuturesUsd, 
 }
 ```
 
-- [ ] **Step 4: Update `futures/mod.rs` imports and module exports**
+- [x] **Step 4: Update `futures/mod.rs` imports and module exports**
 
 Modify the top of `barter-data/src/exchange/binance/futures/mod.rs` so the imports include the raw candle model and `Candles`:
 
@@ -344,7 +344,7 @@ Add this module export before `pub mod l2;`:
 pub mod candle;
 ```
 
-- [ ] **Step 5: Add `StreamSelector` for Binance USD-M candles**
+- [x] **Step 5: Add `StreamSelector` for Binance USD-M candles**
 
 Add this impl after the `OrderBooksL2` `StreamSelector` impl and before the `Liquidations` impl:
 
@@ -358,7 +358,7 @@ where
 }
 ```
 
-- [ ] **Step 6: Run parser tests and verify they pass**
+- [x] **Step 6: Run parser tests and verify they pass**
 
 Run:
 
@@ -368,7 +368,7 @@ rtk cargo test -p barter-data binance_futures_kline -- --nocapture
 
 Expected result: both tests in `exchange::binance::futures::candle::tests` pass.
 
-- [ ] **Step 7: Commit parser and channel wiring**
+- [x] **Step 7: Commit parser and channel wiring**
 
 Run:
 
@@ -384,7 +384,7 @@ rtk git commit -m "feat(data): add binance futures candle stream parser"
 **Files:**
 - Modify: `barter-data/src/subscription/mod.rs`
 
-- [ ] **Step 1: Write support matrix tests**
+- [x] **Step 1: Write support matrix tests**
 
 Append this test module inside the existing `#[cfg(test)] mod tests` in `barter-data/src/subscription/mod.rs`:
 
@@ -416,7 +416,7 @@ Append this test module inside the existing `#[cfg(test)] mod tests` in `barter-
     }
 ```
 
-- [ ] **Step 2: Run support matrix tests and verify the first test fails**
+- [x] **Step 2: Skipped red support matrix failure check per confirmed commit strategy**
 
 Run:
 
@@ -426,7 +426,7 @@ rtk cargo test -p barter-data support_matrix -- --nocapture
 
 Expected result: `test_binance_futures_usd_supports_perpetual_candles` fails because `SubKind::Candles` is not yet enabled for Binance USD-M perpetual instruments.
 
-- [ ] **Step 3: Update support matrix implementation**
+- [x] **Step 3: Update support matrix implementation**
 
 In `exchange_supports_instrument_kind_sub_kind`, change the Binance USD-M perpetual match arm from:
 
@@ -448,7 +448,7 @@ to:
         ) => true,
 ```
 
-- [ ] **Step 4: Run support matrix tests and verify they pass**
+- [x] **Step 4: Run support matrix tests and verify they pass**
 
 Run:
 
@@ -458,7 +458,7 @@ rtk cargo test -p barter-data support_matrix -- --nocapture
 
 Expected result: both support matrix tests pass.
 
-- [ ] **Step 5: Commit support matrix change**
+- [x] **Step 5: Commit support matrix change**
 
 Run:
 
@@ -474,7 +474,7 @@ rtk git commit -m "feat(data): enable binance futures candle subscriptions"
 **Files:**
 - Modify: `barter-data/src/streams/builder/dynamic/mod.rs`
 
-- [ ] **Step 1: Add imports for `Candle` and `Candles`**
+- [x] **Step 1: Add imports for `Candle` and `Candles`**
 
 In `barter-data/src/streams/builder/dynamic/mod.rs`, change the `subscription` imports to include candles:
 
@@ -488,7 +488,7 @@ In `barter-data/src/streams/builder/dynamic/mod.rs`, change the `subscription` i
     },
 ```
 
-- [ ] **Step 2: Add `candles` field to `DynamicStreams`**
+- [x] **Step 2: Add `candles` field to `DynamicStreams`**
 
 Change the struct to include this field after `l2s` and before `liquidations`:
 
@@ -497,7 +497,7 @@ Change the struct to include this field after `l2s` and before `liquidations`:
         VecMap<ExchangeId, UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Candle>>>,
 ```
 
-- [ ] **Step 3: Add the Binance USD-M candle identifier bound**
+- [x] **Step 3: Add the Binance USD-M candle identifier bound**
 
 In `DynamicStreams::init` where other Binance USD-M bounds are listed, add:
 
@@ -505,7 +505,7 @@ In `DynamicStreams::init` where other Binance USD-M bounds are listed, add:
         Subscription<BinanceFuturesUsd, Instrument, Candles>: Identifier<BinanceMarket>,
 ```
 
-- [ ] **Step 4: Add the Binance USD-M candles init branch**
+- [x] **Step 4: Add the Binance USD-M candles init branch**
 
 Add this match arm after the Binance USD-M `OrderBooksL2` branch and before `Liquidations`:
 
@@ -532,7 +532,7 @@ Add this match arm after the Binance USD-M `OrderBooksL2` branch and before `Liq
                                     }
 ```
 
-- [ ] **Step 5: Add candles to the `Ok(Self { ... })` construction**
+- [x] **Step 5: Add candles to the `Ok(Self { ... })` construction**
 
 Add this field after `l2s` and before `liquidations`:
 
@@ -545,7 +545,7 @@ Add this field after `l2s` and before `liquidations`:
                 .collect(),
 ```
 
-- [ ] **Step 6: Add candle select methods**
+- [x] **Step 6: Add candle select methods**
 
 Add these methods in `impl<InstrumentKey> DynamicStreams<InstrumentKey>` after the L2 select methods and before liquidation select methods:
 
@@ -568,7 +568,7 @@ Add these methods in `impl<InstrumentKey> DynamicStreams<InstrumentKey>` after t
     }
 ```
 
-- [ ] **Step 7: Include candles in `select_all`**
+- [x] **Step 7: Include candles in `select_all`**
 
 Change the `select_all` bounds to include:
 
@@ -602,7 +602,7 @@ Change the combined stream line to:
         let all = trades.chain(l1s).chain(l2s).chain(candles).chain(liquidations);
 ```
 
-- [ ] **Step 8: Add candle channel creation in `Channels::try_from`**
+- [x] **Step 8: Add candle channel creation in `Channels::try_from`**
 
 Add this match arm after `SubKind::OrderBooksL2` and before `SubKind::Liquidations`:
 
@@ -619,7 +619,7 @@ Add this match arm after `SubKind::OrderBooksL2` and before `SubKind::Liquidatio
                 }
 ```
 
-- [ ] **Step 9: Add candle fields to `Txs`, `Default for Txs`, `Rxs`, and `Default for Rxs`**
+- [x] **Step 9: Add candle fields to `Txs`, `Default for Txs`, `Rxs`, and `Default for Rxs`**
 
 In `Txs<InstrumentKey>`, add:
 
@@ -645,7 +645,7 @@ In `Default for Rxs`, add:
             candles: Default::default(),
 ```
 
-- [ ] **Step 10: Run focused build tests**
+- [x] **Step 10: Run focused build tests**
 
 Run:
 
@@ -655,7 +655,7 @@ rtk cargo test -p barter-data dynamic -- --nocapture
 
 Expected result: dynamic stream tests compile and pass. If no dynamic tests match, the crate should still compile successfully for this test filter.
 
-- [ ] **Step 11: Commit DynamicStreams wiring**
+- [x] **Step 11: Commit DynamicStreams wiring**
 
 Run:
 
@@ -672,7 +672,7 @@ rtk git commit -m "feat(data): wire candles into dynamic streams"
 - Create: `barter-data/examples/binance_futures_candles.rs`
 - Modify: `barter-data/examples/indexed_market_stream.rs`
 
-- [ ] **Step 1: Create Binance futures candle example**
+- [x] **Step 1: Create Binance futures candle example**
 
 Create `barter-data/examples/binance_futures_candles.rs`:
 
@@ -722,7 +722,7 @@ fn init_logging() {
 }
 ```
 
-- [ ] **Step 2: Add candles to indexed example**
+- [x] **Step 2: Kept indexed example unchanged and added candles to dynamic example instead**
 
 In `barter-data/examples/indexed_market_stream.rs`, change the subscription list from:
 
@@ -736,7 +736,7 @@ to:
         &[SubKind::PublicTrades, SubKind::OrderBooksL1, SubKind::OrderBooksL2, SubKind::Candles]
 ```
 
-- [ ] **Step 3: Check examples compile**
+- [x] **Step 3: Check examples compile**
 
 Run:
 
@@ -746,7 +746,7 @@ rtk cargo check -p barter-data --examples
 
 Expected result: all `barter-data` examples compile.
 
-- [ ] **Step 4: Commit examples**
+- [x] **Step 4: Commit examples**
 
 Run:
 
@@ -757,12 +757,15 @@ rtk git commit -m "docs(data): add binance futures candle examples"
 
 ---
 
+
+**Implementation note:** Red-test checkpoint steps were skipped per confirmed commit strategy. The indexed example was left unchanged because it currently uses Binance Spot instruments, and Binance Spot candles remain unsupported by this task. Candle coverage was added to the DynamicStreams example instead. The manually runnable typed candle example was added as `barter-data/examples/candle_streams.rs`, matching existing example naming style.
+
 ## Task 6: Full Verification
 
 **Files:**
-- No source edits expected.
+- Plan tracking update only.
 
-- [ ] **Step 1: Run all barter-data tests**
+- [x] **Step 1: Run all barter-data tests**
 
 Run:
 
@@ -772,7 +775,7 @@ rtk cargo test -p barter-data
 
 Expected result: all `barter-data` tests pass.
 
-- [ ] **Step 2: Run workspace check**
+- [x] **Step 2: Run workspace check**
 
 Run:
 
@@ -782,7 +785,7 @@ rtk cargo check --workspace
 
 Expected result: workspace compiles.
 
-- [ ] **Step 3: Review diff**
+- [x] **Step 3: Review diff**
 
 Run:
 
@@ -793,7 +796,7 @@ rtk git diff --stat HEAD
 
 Expected result: no uncommitted source files from this plan remain. Existing unrelated `clash.txt` may still appear as untracked and should not be committed.
 
-- [ ] **Step 4: Record final verification commit if needed**
+- [x] **Step 4: Record final verification commit if needed**
 
 If Step 3 shows no uncommitted plan files, no commit is needed. If formatting or documentation fixes were made during verification, commit only those files:
 
