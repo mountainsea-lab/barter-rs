@@ -61,9 +61,17 @@ pub struct BinanceFuturesUsdFundingRateFetcher;
 
 impl BinanceFuturesUsdFundingRateFetcher {
     pub fn fetch_latest<Instrument>(
-        subscriptions: &[Subscription<BinanceFuturesUsd, Instrument, crate::subscription::funding::FundingRates>],
-    ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, FundingRate>>, barter_integration::error::SocketError>>
-    + Send
+        subscriptions: &[Subscription<
+            BinanceFuturesUsd,
+            Instrument,
+            crate::subscription::funding::FundingRates,
+        >],
+    ) -> impl Future<
+        Output = Result<
+            Vec<MarketEvent<Instrument::Key, FundingRate>>,
+            barter_integration::error::SocketError,
+        >,
+    > + Send
     where
         Instrument: InstrumentData,
         Instrument::Key: Clone,
@@ -74,10 +82,18 @@ impl BinanceFuturesUsdFundingRateFetcher {
     }
 
     pub fn fetch<Instrument>(
-        subscriptions: &[Subscription<BinanceFuturesUsd, Instrument, crate::subscription::funding::FundingRates>],
+        subscriptions: &[Subscription<
+            BinanceFuturesUsd,
+            Instrument,
+            crate::subscription::funding::FundingRates,
+        >],
         request: BinanceFuturesFundingRateRequest,
-    ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, FundingRate>>, barter_integration::error::SocketError>>
-    + Send
+    ) -> impl Future<
+        Output = Result<
+            Vec<MarketEvent<Instrument::Key, FundingRate>>,
+            barter_integration::error::SocketError,
+        >,
+    > + Send
     where
         Instrument: InstrumentData,
         Instrument::Key: Clone,
@@ -98,23 +114,24 @@ impl BinanceFuturesUsdFundingRateFetcher {
                     .await
                     .map_err(barter_integration::error::SocketError::Http)?;
 
-                Ok::<_, barter_integration::error::SocketError>(rows
-                    .into_iter()
-                    .map(|row| {
-                        let funding_time = row.funding_time;
-                        MarketEvent {
-                            time_exchange: funding_time,
-                            time_received: Utc::now(),
-                            exchange: ExchangeId::BinanceFuturesUsd,
-                            instrument: sub.instrument.key().clone(),
-                            kind: FundingRate {
-                                funding_time,
-                                funding_rate: row.funding_rate,
-                                mark_price: row.mark_price,
-                            },
-                        }
-                    })
-                    .collect::<Vec<_>>())
+                Ok::<_, barter_integration::error::SocketError>(
+                    rows.into_iter()
+                        .map(|row| {
+                            let funding_time = row.funding_time;
+                            MarketEvent {
+                                time_exchange: funding_time,
+                                time_received: Utc::now(),
+                                exchange: ExchangeId::BinanceFuturesUsd,
+                                instrument: sub.instrument.key().clone(),
+                                kind: FundingRate {
+                                    funding_time,
+                                    funding_rate: row.funding_rate,
+                                    mark_price: row.mark_price,
+                                },
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                )
             }
         });
 

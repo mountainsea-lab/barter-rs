@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 /// Funding rates are REST-first data in the current architecture. This marker
 /// identifies the normalized output type, but does not imply WebSocket stream
 /// support or `DynamicStreams` wiring.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize,
+)]
 pub struct FundingRates;
 
 impl SubscriptionKind for FundingRates {
