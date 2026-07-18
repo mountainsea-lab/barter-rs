@@ -20,6 +20,9 @@ pub mod book;
 /// Candle [`SubscriptionKind`] and the associated Barter output data model.
 pub mod candle;
 
+/// Funding rate [`SubscriptionKind`] and the associated Barter output data model.
+pub mod funding;
+
 /// Liquidation [`SubscriptionKind`] and the associated Barter output data model.
 pub mod liquidation;
 
