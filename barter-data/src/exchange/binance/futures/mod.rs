@@ -31,7 +31,7 @@ pub mod liquidation;
 /// [`BinanceFuturesUsd`] WebSocket server base url.
 ///
 /// See docs: <https://binance-docs.github.io/apidocs/futures/en/#websocket-market-streams>
-pub const WEBSOCKET_BASE_URL_BINANCE_FUTURES_USD: &str = "wss://fstream.binance.com/ws";
+pub const WEBSOCKET_BASE_URL_BINANCE_FUTURES_USD: &str = "wss://fstream.binance.com/market/ws";
 
 /// [`Binance`] perpetual usd exchange.
 pub type BinanceFuturesUsd = Binance<BinanceServerFuturesUsd>;
@@ -78,5 +78,27 @@ where
 impl Display for BinanceFuturesUsd {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "BinanceFuturesUsd")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::exchange::Connector;
+
+    #[test]
+    fn binance_futures_usd_uses_market_websocket_path() {
+        assert_eq!(
+            BinanceFuturesUsd::url().unwrap().as_str(),
+            "wss://fstream.binance.com/market/ws"
+        );
+    }
+
+    #[test]
+    fn binance_futures_usd_websocket_base_url_matches_official_market_path() {
+        assert_eq!(
+            WEBSOCKET_BASE_URL_BINANCE_FUTURES_USD,
+            "wss://fstream.binance.com/market/ws"
+        );
     }
 }
