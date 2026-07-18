@@ -4,6 +4,7 @@ use crate::{
     subscription::{
         book::{OrderBookEvent, OrderBookL1},
         candle::Candle,
+        funding::FundingRate,
         liquidation::Liquidation,
         trade::PublicTrade,
     },
@@ -91,6 +92,13 @@ impl<InstrumentKey> MarketEvent<InstrumentKey, DataKind> {
         }
     }
 
+    pub fn as_funding_rate(&self) -> Option<MarketEvent<&InstrumentKey, &FundingRate>> {
+        match &self.kind {
+            DataKind::FundingRate(funding_rate) => Some(self.as_event(funding_rate)),
+            _ => None,
+        }
+    }
+
     pub fn as_liquidation(&self) -> Option<MarketEvent<&InstrumentKey, &Liquidation>> {
         match &self.kind {
             DataKind::Liquidation(liquidation) => Some(self.as_event(liquidation)),
@@ -126,6 +134,7 @@ pub enum DataKind {
     OrderBookL1(OrderBookL1),
     OrderBook(OrderBookEvent),
     Candle(Candle),
+    FundingRate(FundingRate),
     Liquidation(Liquidation),
 }
 
@@ -136,6 +145,7 @@ impl DataKind {
             DataKind::OrderBookL1(_) => "l1",
             DataKind::OrderBook(_) => "l2",
             DataKind::Candle(_) => "candle",
+            DataKind::FundingRate(_) => "funding_rate",
             DataKind::Liquidation(_) => "liquidation",
         }
     }
@@ -205,6 +215,22 @@ impl<InstrumentKey> From<MarketEvent<InstrumentKey, Candle>>
     }
 }
 
+impl<InstrumentKey> From<MarketStreamResult<InstrumentKey, FundingRate>>
+    for MarketStreamResult<InstrumentKey, DataKind>
+{
+    fn from(value: MarketStreamResult<InstrumentKey, FundingRate>) -> Self {
+        value.map_ok(MarketEvent::from)
+    }
+}
+
+impl<InstrumentKey> From<MarketEvent<InstrumentKey, FundingRate>>
+    for MarketEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketEvent<InstrumentKey, FundingRate>) -> Self {
+        value.map_kind(FundingRate::into)
+    }
+}
+
 impl<InstrumentKey> From<MarketStreamResult<InstrumentKey, Liquidation>>
     for MarketStreamResult<InstrumentKey, DataKind>
 {
@@ -218,5 +244,34 @@ impl<InstrumentKey> From<MarketEvent<InstrumentKey, Liquidation>>
 {
     fn from(value: MarketEvent<InstrumentKey, Liquidation>) -> Self {
         value.map_kind(Liquidation::into)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn funding_rate_event_converts_to_data_kind() {
+        let time = Utc::now();
+        let event = MarketEvent {
+            time_exchange: time,
+            time_received: time,
+            exchange: ExchangeId::BinanceFuturesUsd,
+            instrument: "btc-usdt-perp",
+            kind: FundingRate {
+                funding_time: time,
+                funding_rate: dec!(0.00010000),
+                mark_price: Some(dec!(65000.25)),
+            },
+        };
+
+        let data_kind_event = MarketEvent::<_, DataKind>::from(event);
+
+        assert_eq!(data_kind_event.kind.kind_name(), "funding_rate");
+        let funding_rate_event = data_kind_event.as_funding_rate().unwrap();
+        assert_eq!(funding_rate_event.kind.funding_rate, dec!(0.00010000));
+        assert_eq!(funding_rate_event.kind.mark_price, Some(dec!(65000.25)));
     }
 }
