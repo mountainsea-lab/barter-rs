@@ -1,4 +1,4 @@
-use self::liquidation::BinanceLiquidation;
+use self::{candle::BinanceFuturesKline, liquidation::BinanceLiquidation};
 use super::{Binance, ExchangeServer};
 use crate::{
     NoInitialSnapshots,
@@ -13,11 +13,14 @@ use crate::{
         },
     },
     instrument::InstrumentData,
-    subscription::{book::OrderBooksL2, liquidation::Liquidations},
+    subscription::{book::OrderBooksL2, candle::Candles, liquidation::Liquidations},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
 use std::fmt::{Display, Formatter};
+
+/// Kline/candlestick types.
+pub mod candle;
 
 /// Level 2 OrderBook types.
 pub mod l2;
@@ -51,6 +54,15 @@ where
 {
     type SnapFetcher = BinanceFuturesUsdOrderBooksL2SnapshotFetcher;
     type Stream = BinanceWsStream<BinanceFuturesUsdOrderBooksL2Transformer<Instrument::Key>>;
+}
+
+impl<Instrument> StreamSelector<Instrument, Candles> for BinanceFuturesUsd
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream =
+        BinanceWsStream<StatelessTransformer<Self, Instrument::Key, Candles, BinanceFuturesKline>>;
 }
 
 impl<Instrument> StreamSelector<Instrument, Liquidations> for BinanceFuturesUsd

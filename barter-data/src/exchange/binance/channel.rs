@@ -4,6 +4,7 @@ use crate::{
     subscription::{
         Subscription,
         book::{OrderBooksL1, OrderBooksL2},
+        candle::Candles,
         liquidation::Liquidations,
         trade::PublicTrades,
     },
@@ -42,6 +43,11 @@ impl BinanceChannel {
     /// See docs: <https://binance-docs.github.io/apidocs/futures/en/#diff-book-depth-streams>
     pub const ORDER_BOOK_L2: Self = Self("@depth@100ms");
 
+    /// [`BinanceFuturesUsd`] one minute kline/candlestick channel name.
+    ///
+    /// See docs: <https://binance-docs.github.io/apidocs/futures/en/#kline-candlestick-streams>
+    pub const CANDLES_1M: Self = Self("@kline_1m");
+
     /// [`BinanceFuturesUsd`] liquidation orders channel name.
     ///
     /// See docs: <https://binance-docs.github.io/apidocs/futures/en/#liquidation-order-streams>
@@ -69,6 +75,14 @@ impl<Server, Instrument> Identifier<BinanceChannel>
 {
     fn id(&self) -> BinanceChannel {
         BinanceChannel::ORDER_BOOK_L2
+    }
+}
+
+impl<Instrument> Identifier<BinanceChannel>
+    for Subscription<BinanceFuturesUsd, Instrument, Candles>
+{
+    fn id(&self) -> BinanceChannel {
+        BinanceChannel::CANDLES_1M
     }
 }
 
