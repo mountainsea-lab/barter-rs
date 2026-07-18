@@ -22,6 +22,9 @@ use std::fmt::{Display, Formatter};
 /// Kline/candlestick types.
 pub mod candle;
 
+/// Funding rate REST types and fetcher.
+pub mod funding;
+
 /// Level 2 OrderBook types.
 pub mod l2;
 
