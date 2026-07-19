@@ -269,7 +269,7 @@ pub fn exchange_supports_instrument_kind_sub_kind(
         (
             BinanceFuturesUsd,
             Perpetual,
-            PublicTrades | OrderBooksL1 | OrderBooksL2 | Liquidations | Candles,
+            PublicTrades | OrderBooksL1 | OrderBooksL2 | Liquidations | Candles | MarkPrices,
         ) => true,
         (Bitfinex, Spot, PublicTrades) => true,
         (Bitmex, Perpetual, PublicTrades) => true,
@@ -638,6 +638,24 @@ mod tests {
                 &ExchangeId::BinanceFuturesUsd,
                 &MarketDataInstrumentKind::Spot,
                 SubKind::Candles,
+            ));
+        }
+
+        #[test]
+        fn test_binance_futures_usd_supports_perpetual_mark_prices() {
+            assert!(exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Perpetual,
+                SubKind::MarkPrices,
+            ));
+        }
+
+        #[test]
+        fn test_binance_futures_usd_rejects_spot_mark_prices() {
+            assert!(!exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Spot,
+                SubKind::MarkPrices,
             ));
         }
     }

@@ -27,6 +27,7 @@ use crate::{
         book::{OrderBookEvent, OrderBookL1, OrderBooksL1, OrderBooksL2},
         candle::{Candle, Candles},
         liquidation::{Liquidation, Liquidations},
+        mark_price::{MarkPrice, MarkPrices},
         trade::{PublicTrade, PublicTrades},
     },
 };
@@ -63,6 +64,8 @@ pub struct DynamicStreams<InstrumentKey> {
         VecMap<ExchangeId, UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Candle>>>,
     pub liquidations:
         VecMap<ExchangeId, UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Liquidation>>>,
+    pub mark_prices:
+        VecMap<ExchangeId, UnboundedReceiverStream<MarketStreamResult<InstrumentKey, MarkPrice>>>,
 }
 
 impl<InstrumentKey> DynamicStreams<InstrumentKey> {
@@ -92,6 +95,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, Candles>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, Liquidations>: Identifier<BinanceMarket>,
+        Subscription<BinanceFuturesUsd, Instrument, MarkPrices>: Identifier<BinanceMarket>,
         Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
         Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexMarket>,
         Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitMarket>,
@@ -288,6 +292,26 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         .map(|stream| {
                                             tokio::spawn(stream.forward_to(
                                                 txs.liquidations.get(&exchange).unwrap().clone(),
+                                            ))
+                                        })
+                                    }
+                                    (ExchangeId::BinanceFuturesUsd, SubKind::MarkPrices) => {
+                                        init_market_stream(
+                                            STREAM_RECONNECTION_POLICY,
+                                            subs.into_iter()
+                                                .map(|sub| {
+                                                    Subscription::<_, Instrument, _>::new(
+                                                        BinanceFuturesUsd::default(),
+                                                        sub.instrument,
+                                                        MarkPrices,
+                                                    )
+                                                })
+                                                .collect(),
+                                        )
+                                        .await
+                                        .map(|stream| {
+                                            tokio::spawn(stream.forward_to(
+                                                txs.mark_prices.get(&exchange).unwrap().clone(),
                                             ))
                                         })
                                     }
@@ -690,6 +714,12 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                 .into_iter()
                 .map(|(exchange, rx)| (exchange, rx.into_stream()))
                 .collect(),
+            mark_prices: channels
+                .rxs
+                .mark_prices
+                .into_iter()
+                .map(|(exchange, rx)| (exchange, rx.into_stream()))
+                .collect(),
         })
     }
 
@@ -787,6 +817,26 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         )
     }
 
+    /// Remove an exchange [`MarkPrice`] `Stream` from the [`DynamicStreams`] collection.
+    ///
+    /// Note that calling this method will permanently remove this `Stream` from [`Self`].
+    pub fn select_mark_prices(
+        &mut self,
+        exchange: ExchangeId,
+    ) -> Option<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, MarkPrice>>> {
+        self.mark_prices.remove(&exchange)
+    }
+
+    /// Select and merge every exchange [`MarkPrice`] `Stream` using
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
+    pub fn select_all_mark_prices(
+        &mut self,
+    ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, MarkPrice>>> {
+        futures_util::stream::select_all::select_all(
+            std::mem::take(&mut self.mark_prices).into_values(),
+        )
+    }
+
     /// Select and merge every exchange `Stream` for every data type using [`select_all`](futures_util::stream::select_all::select_all)
     ///
     /// Note that using [`MarketStreamResult<Instrument, DataKind>`] as the `Output` is suitable for most
@@ -800,6 +850,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         MarketStreamResult<InstrumentKey, OrderBookEvent>: Into<Output>,
         MarketStreamResult<InstrumentKey, Candle>: Into<Output>,
         MarketStreamResult<InstrumentKey, Liquidation>: Into<Output>,
+        MarketStreamResult<InstrumentKey, MarkPrice>: Into<Output>,
     {
         let Self {
             trades,
@@ -807,6 +858,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
             l2s,
             candles,
             liquidations,
+            mark_prices,
         } = self;
 
         let trades = trades
@@ -829,11 +881,16 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
             .into_values()
             .map(|stream| stream.map(MarketStreamResult::into).boxed());
 
+        let mark_prices = mark_prices
+            .into_values()
+            .map(|stream| stream.map(MarketStreamResult::into).boxed());
+
         let all = trades
             .chain(l1s)
             .chain(l2s)
             .chain(candles)
-            .chain(liquidations);
+            .chain(liquidations)
+            .chain(mark_prices);
 
         futures_util::stream::select_all::select_all(all)
     }
@@ -939,6 +996,16 @@ where
                         rxs.liquidations.insert(sub.exchange, rx);
                     }
                 }
+                SubKind::MarkPrices => {
+                    if let (None, None) = (
+                        txs.mark_prices.get(&sub.exchange),
+                        rxs.mark_prices.get(&sub.exchange),
+                    ) {
+                        let (tx, rx) = mpsc_unbounded();
+                        txs.mark_prices.insert(sub.exchange, tx);
+                        rxs.mark_prices.insert(sub.exchange, rx);
+                    }
+                }
                 unsupported => return Err(DataError::UnsupportedSubKind(unsupported)),
             }
         }
@@ -957,6 +1024,7 @@ struct Txs<InstrumentKey> {
     candles: FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, Candle>>>,
     liquidations:
         FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, Liquidation>>>,
+    mark_prices: FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, MarkPrice>>>,
 }
 
 impl<InstrumentKey> Default for Txs<InstrumentKey> {
@@ -967,6 +1035,7 @@ impl<InstrumentKey> Default for Txs<InstrumentKey> {
             l2s: Default::default(),
             candles: Default::default(),
             liquidations: Default::default(),
+            mark_prices: Default::default(),
         }
     }
 }
@@ -978,6 +1047,7 @@ struct Rxs<InstrumentKey> {
     candles: FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, Candle>>>,
     liquidations:
         FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, Liquidation>>>,
+    mark_prices: FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, MarkPrice>>>,
 }
 
 impl<InstrumentKey> Default for Rxs<InstrumentKey> {
@@ -988,6 +1058,60 @@ impl<InstrumentKey> Default for Rxs<InstrumentKey> {
             l2s: Default::default(),
             candles: Default::default(),
             liquidations: Default::default(),
+            mark_prices: Default::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use barter_instrument::instrument::market_data::{
+        MarketDataInstrument, kind::MarketDataInstrumentKind,
+    };
+
+    #[test]
+    fn channels_allocate_mark_prices_for_binance_futures_usd() {
+        let batches: Vec<Vec<Subscription<ExchangeId, MarketDataInstrument, SubKind>>> =
+            vec![vec![Subscription::new(
+                ExchangeId::BinanceFuturesUsd,
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
+                SubKind::MarkPrices,
+            )]];
+
+        let channels = Channels::try_from(&batches).unwrap();
+
+        assert!(
+            channels
+                .txs
+                .mark_prices
+                .contains_key(&ExchangeId::BinanceFuturesUsd)
+        );
+        assert!(
+            channels
+                .rxs
+                .mark_prices
+                .contains_key(&ExchangeId::BinanceFuturesUsd)
+        );
+    }
+
+    #[test]
+    fn dynamic_streams_can_select_mark_price_streams() {
+        let mut streams = DynamicStreams::<MarketDataInstrument> {
+            trades: VecMap::new(),
+            l1s: VecMap::new(),
+            l2s: VecMap::new(),
+            candles: VecMap::new(),
+            liquidations: VecMap::new(),
+            mark_prices: VecMap::new(),
+        };
+
+        assert!(
+            streams
+                .select_mark_prices(ExchangeId::BinanceFuturesUsd)
+                .is_none()
+        );
+
+        let _all_mark_prices = streams.select_all_mark_prices();
     }
 }
