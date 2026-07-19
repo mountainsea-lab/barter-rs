@@ -33,6 +33,9 @@ pub mod funding;
 /// Mark price REST and WebSocket types.
 pub mod mark_price;
 
+/// Index price REST and WebSocket types.
+pub mod index_price;
+
 /// Level 2 OrderBook types.
 pub mod l2;
 
