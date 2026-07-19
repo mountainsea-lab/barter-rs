@@ -8,6 +8,7 @@ use crate::{
         index_price::IndexPrice,
         liquidation::Liquidation,
         mark_price::MarkPrice,
+        open_interest::OpenInterest,
         trade::PublicTrade,
     },
 };
@@ -115,6 +116,13 @@ impl<InstrumentKey> MarketEvent<InstrumentKey, DataKind> {
         }
     }
 
+    pub fn as_open_interest(&self) -> Option<MarketEvent<&InstrumentKey, &OpenInterest>> {
+        match &self.kind {
+            DataKind::OpenInterest(open_interest) => Some(self.as_event(open_interest)),
+            _ => None,
+        }
+    }
+
     pub fn as_liquidation(&self) -> Option<MarketEvent<&InstrumentKey, &Liquidation>> {
         match &self.kind {
             DataKind::Liquidation(liquidation) => Some(self.as_event(liquidation)),
@@ -153,6 +161,7 @@ pub enum DataKind {
     FundingRate(FundingRate),
     MarkPrice(MarkPrice),
     IndexPrice(IndexPrice),
+    OpenInterest(OpenInterest),
     Liquidation(Liquidation),
 }
 
@@ -166,6 +175,7 @@ impl DataKind {
             DataKind::FundingRate(_) => "funding_rate",
             DataKind::MarkPrice(_) => "mark_price",
             DataKind::IndexPrice(_) => "index_price",
+            DataKind::OpenInterest(_) => "open_interest",
             DataKind::Liquidation(_) => "liquidation",
         }
     }
@@ -283,6 +293,22 @@ impl<InstrumentKey> From<MarketEvent<InstrumentKey, IndexPrice>>
     }
 }
 
+impl<InstrumentKey> From<MarketStreamResult<InstrumentKey, OpenInterest>>
+    for MarketStreamResult<InstrumentKey, DataKind>
+{
+    fn from(value: MarketStreamResult<InstrumentKey, OpenInterest>) -> Self {
+        value.map_ok(MarketEvent::from)
+    }
+}
+
+impl<InstrumentKey> From<MarketEvent<InstrumentKey, OpenInterest>>
+    for MarketEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketEvent<InstrumentKey, OpenInterest>) -> Self {
+        value.map_kind(OpenInterest::into)
+    }
+}
+
 impl<InstrumentKey> From<MarketStreamResult<InstrumentKey, Liquidation>>
     for MarketStreamResult<InstrumentKey, DataKind>
 {
@@ -374,5 +400,28 @@ mod tests {
         let index_price_event = data_kind_event.as_index_price().unwrap();
         assert_eq!(index_price_event.kind.event_time, time);
         assert_eq!(index_price_event.kind.index_price, dec!(11791.23456789));
+    }
+
+    #[test]
+    fn data_kind_supports_open_interest_events() {
+        use crate::subscription::open_interest::OpenInterest;
+
+        let event_time = Utc::now();
+        let input = MarketEvent {
+            time_exchange: event_time,
+            time_received: event_time,
+            exchange: ExchangeId::BinanceFuturesUsd,
+            instrument: "BTCUSDT",
+            kind: OpenInterest {
+                event_time,
+                open_interest: dec!(10659.509),
+            },
+        };
+
+        let actual = MarketEvent::<_, DataKind>::from(input);
+
+        assert_eq!(actual.kind.kind_name(), "open_interest");
+        let open_interest = actual.as_open_interest().unwrap();
+        assert_eq!(open_interest.kind.open_interest, dec!(10659.509));
     }
 }

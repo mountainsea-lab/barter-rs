@@ -29,6 +29,9 @@ pub mod index_price;
 /// Mark price [`SubscriptionKind`] and the associated Barter output data model.
 pub mod mark_price;
 
+/// Open interest [`SubscriptionKind`] and the associated Barter output data model.
+pub mod open_interest;
+
 /// Liquidation [`SubscriptionKind`] and the associated Barter output data model.
 pub mod liquidation;
 
@@ -100,6 +103,7 @@ pub enum SubKind {
     MarkPrices,
     FundingRates,
     IndexPrices,
+    OpenInterests,
 }
 
 impl<Exchange, S, Kind> From<(Exchange, S, S, MarketDataInstrumentKind, Kind)>
@@ -276,7 +280,7 @@ pub fn exchange_supports_instrument_kind_sub_kind(
             BinanceFuturesUsd,
             Perpetual,
             PublicTrades | OrderBooksL1 | OrderBooksL2 | Liquidations | Candles | MarkPrices
-            | FundingRates | IndexPrices,
+            | FundingRates | IndexPrices | OpenInterests,
         ) => true,
         (Bitfinex, Spot, PublicTrades) => true,
         (Bitmex, Perpetual, PublicTrades) => true,
@@ -371,6 +375,7 @@ mod tests {
                 (SubKind::MarkPrices, "mark_prices"),
                 (SubKind::FundingRates, "funding_rates"),
                 (SubKind::IndexPrices, "index_prices"),
+                (SubKind::OpenInterests, "open_interests"),
             ];
 
             for (kind, expected) in cases {
@@ -718,6 +723,33 @@ mod tests {
                 &ExchangeId::BinanceFuturesUsd,
                 &MarketDataInstrumentKind::Spot,
                 SubKind::FundingRates,
+            ));
+        }
+
+        #[test]
+        fn test_binance_futures_usd_supports_perpetual_open_interests() {
+            assert!(exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Perpetual,
+                SubKind::OpenInterests,
+            ));
+        }
+
+        #[test]
+        fn test_binance_futures_usd_rejects_spot_open_interests() {
+            assert!(!exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Spot,
+                SubKind::OpenInterests,
+            ));
+        }
+
+        #[test]
+        fn test_binance_spot_rejects_open_interests() {
+            assert!(!exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceSpot,
+                &MarketDataInstrumentKind::Spot,
+                SubKind::OpenInterests,
             ));
         }
     }
