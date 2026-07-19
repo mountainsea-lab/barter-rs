@@ -23,6 +23,9 @@ pub mod candle;
 /// Funding rate [`SubscriptionKind`] and the associated Barter output data model.
 pub mod funding;
 
+/// Mark price [`SubscriptionKind`] and the associated Barter output data model.
+pub mod mark_price;
+
 /// Liquidation [`SubscriptionKind`] and the associated Barter output data model.
 pub mod liquidation;
 
@@ -90,6 +93,7 @@ pub enum SubKind {
     OrderBooksL3,
     Liquidations,
     Candles,
+    MarkPrices,
 }
 
 impl<Exchange, S, Kind> From<(Exchange, S, S, MarketDataInstrumentKind, Kind)>
