@@ -75,14 +75,7 @@ impl BinanceFuturesUsdIndexPriceFetcher {
             let url = index_price_url(symbol.as_ref());
 
             async move {
-                let row = reqwest::get(url)
-                    .await
-                    .map_err(barter_integration::error::SocketError::Http)?
-                    .error_for_status()
-                    .map_err(barter_integration::error::SocketError::Http)?
-                    .json::<BinanceFuturesIndexPriceRest>()
-                    .await
-                    .map_err(barter_integration::error::SocketError::Http)?;
+                let row = fetch_index_price_url(url).await?;
 
                 let event_time = row.time;
                 Ok::<_, barter_integration::error::SocketError>(MarketEvent {
@@ -97,6 +90,19 @@ impl BinanceFuturesUsdIndexPriceFetcher {
 
         async move { try_join_all(index_price_futures).await }
     }
+}
+
+async fn fetch_index_price_url(
+    url: String,
+) -> Result<BinanceFuturesIndexPriceRest, barter_integration::error::SocketError> {
+    reqwest::get(url)
+        .await
+        .map_err(barter_integration::error::SocketError::Http)?
+        .error_for_status()
+        .map_err(barter_integration::error::SocketError::Http)?
+        .json::<BinanceFuturesIndexPriceRest>()
+        .await
+        .map_err(barter_integration::error::SocketError::Http)
 }
 
 /// Binance USD-M Futures premium index REST response normalised as index price.
@@ -283,14 +289,36 @@ mod tests {
         assert_eq!(event.kind.index_price, dec!(11791.23456789));
     }
 
-    #[test]
-    fn index_price_fetcher_surfaces_http_error_statuses() {
-        let source = include_str!("index_price.rs");
+    #[tokio::test]
+    async fn index_price_fetcher_surfaces_http_error_statuses_before_json_decoding() {
+        use std::{
+            io::{Read, Write},
+            net::TcpListener,
+        };
 
-        assert!(
-            source.matches(".error_for_status()").count() >= 2,
-            "index price REST fetcher must call error_for_status() before JSON decoding"
-        );
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0; 1024];
+            let _ = stream.read(&mut request).unwrap();
+            stream
+                .write_all(
+                    b"HTTP/1.1 418 I'm a teapot\r\ncontent-type: application/json\r\ncontent-length: 8\r\n\r\nnot-json",
+                )
+                .unwrap();
+        });
+
+        let actual = fetch_index_price_url(url).await;
+
+        server.join().unwrap();
+        match actual {
+            Err(barter_integration::error::SocketError::Http(error)) => {
+                assert_eq!(error.status(), Some(reqwest::StatusCode::IM_A_TEAPOT));
+            }
+            other => panic!("expected HTTP status error before JSON decoding, got {other:?}"),
+        }
     }
 
     #[test]
