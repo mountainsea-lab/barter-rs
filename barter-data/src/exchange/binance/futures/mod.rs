@@ -1,6 +1,6 @@
 use self::{
-    candle::BinanceFuturesKline, liquidation::BinanceLiquidation,
-    index_price::BinanceFuturesIndexPriceWs, mark_price::BinanceFuturesMarkPriceWs,
+    candle::BinanceFuturesKline, index_price::BinanceFuturesIndexPriceWs,
+    liquidation::BinanceLiquidation, mark_price::BinanceFuturesMarkPriceWs,
 };
 use super::{Binance, ExchangeServer};
 use crate::{
@@ -149,11 +149,8 @@ mod tests {
         {
         }
 
-        let _instrument = MarketDataInstrument::from((
-            "btc",
-            "usdt",
-            MarketDataInstrumentKind::Perpetual,
-        ));
+        let _instrument =
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual));
         assert_selector::<MarketDataInstrument>();
     }
 }

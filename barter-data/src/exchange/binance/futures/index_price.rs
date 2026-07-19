@@ -1,7 +1,10 @@
 use crate::{
     Identifier,
     event::{MarketEvent, MarketIter},
-    exchange::{ExchangeSub, binance::{futures::BinanceFuturesUsd, market::BinanceMarket}},
+    exchange::{
+        ExchangeSub,
+        binance::{futures::BinanceFuturesUsd, market::BinanceMarket},
+    },
     instrument::InstrumentData,
     subscription::{Subscription, index_price::IndexPrice},
 };

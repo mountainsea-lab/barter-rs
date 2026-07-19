@@ -1092,7 +1092,8 @@ struct Txs<InstrumentKey> {
     liquidations:
         FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, Liquidation>>>,
     mark_prices: FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, MarkPrice>>>,
-    index_prices: FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, IndexPrice>>>,
+    index_prices:
+        FnvHashMap<ExchangeId, UnboundedTx<MarketStreamResult<InstrumentKey, IndexPrice>>>,
 }
 
 impl<InstrumentKey> Default for Txs<InstrumentKey> {
@@ -1117,7 +1118,8 @@ struct Rxs<InstrumentKey> {
     liquidations:
         FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, Liquidation>>>,
     mark_prices: FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, MarkPrice>>>,
-    index_prices: FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, IndexPrice>>>,
+    index_prices:
+        FnvHashMap<ExchangeId, UnboundedRx<MarketStreamResult<InstrumentKey, IndexPrice>>>,
 }
 
 impl<InstrumentKey> Default for Rxs<InstrumentKey> {
