@@ -5,6 +5,7 @@ use crate::{
         Subscription,
         book::{OrderBooksL1, OrderBooksL2},
         candle::Candles,
+        index_price::IndexPrices,
         liquidation::Liquidations,
         mark_price::MarkPrices,
         trade::PublicTrades,
@@ -101,6 +102,14 @@ impl<Instrument> Identifier<BinanceChannel>
 }
 
 impl<Instrument> Identifier<BinanceChannel>
+    for Subscription<BinanceFuturesUsd, Instrument, IndexPrices>
+{
+    fn id(&self) -> BinanceChannel {
+        BinanceChannel::MARK_PRICE_1S
+    }
+}
+
+impl<Instrument> Identifier<BinanceChannel>
     for Subscription<BinanceFuturesUsd, Instrument, Liquidations>
 {
     fn id(&self) -> BinanceChannel {
@@ -129,6 +138,23 @@ mod tests {
                 BinanceFuturesUsd::default(),
                 MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
                 MarkPrices,
+            );
+
+        let channel: BinanceChannel = subscription.id();
+        let market: BinanceMarket = subscription.id();
+        let exchange_sub = ExchangeSub::from((channel, market));
+
+        assert_eq!(exchange_sub.channel, BinanceChannel::MARK_PRICE_1S);
+        assert_eq!(exchange_sub.id().as_ref(), "@markPrice@1s|BTCUSDT");
+    }
+
+    #[test]
+    fn binance_futures_index_price_subscription_uses_mark_price_one_second_channel() {
+        let subscription: Subscription<BinanceFuturesUsd, MarketDataInstrument, IndexPrices> =
+            Subscription::new(
+                BinanceFuturesUsd::default(),
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
+                IndexPrices,
             );
 
         let channel: BinanceChannel = subscription.id();

@@ -1,6 +1,6 @@
 use self::{
     candle::BinanceFuturesKline, liquidation::BinanceLiquidation,
-    mark_price::BinanceFuturesMarkPriceWs,
+    index_price::BinanceFuturesIndexPriceWs, mark_price::BinanceFuturesMarkPriceWs,
 };
 use super::{Binance, ExchangeServer};
 use crate::{
@@ -17,7 +17,8 @@ use crate::{
     },
     instrument::InstrumentData,
     subscription::{
-        book::OrderBooksL2, candle::Candles, liquidation::Liquidations, mark_price::MarkPrices,
+        book::OrderBooksL2, candle::Candles, index_price::IndexPrices, liquidation::Liquidations,
+        mark_price::MarkPrices,
     },
     transformer::stateless::StatelessTransformer,
 };
@@ -89,6 +90,16 @@ where
     >;
 }
 
+impl<Instrument> StreamSelector<Instrument, IndexPrices> for BinanceFuturesUsd
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream = BinanceWsStream<
+        StatelessTransformer<Self, Instrument::Key, IndexPrices, BinanceFuturesIndexPriceWs>,
+    >;
+}
+
 impl<Instrument> StreamSelector<Instrument, Liquidations> for BinanceFuturesUsd
 where
     Instrument: InstrumentData,
@@ -109,6 +120,9 @@ impl Display for BinanceFuturesUsd {
 mod tests {
     use super::*;
     use crate::exchange::Connector;
+    use barter_instrument::instrument::market_data::{
+        MarketDataInstrument, kind::MarketDataInstrumentKind,
+    };
 
     #[test]
     fn binance_futures_usd_uses_market_websocket_path() {
@@ -124,5 +138,22 @@ mod tests {
             WEBSOCKET_BASE_URL_BINANCE_FUTURES_USD,
             "wss://fstream.binance.com/market/ws"
         );
+    }
+
+    #[test]
+    fn binance_futures_index_prices_have_stream_selector() {
+        fn assert_selector<Instrument>()
+        where
+            Instrument: InstrumentData,
+            BinanceFuturesUsd: StreamSelector<Instrument, IndexPrices>,
+        {
+        }
+
+        let _instrument = MarketDataInstrument::from((
+            "btc",
+            "usdt",
+            MarketDataInstrumentKind::Perpetual,
+        ));
+        assert_selector::<MarketDataInstrument>();
     }
 }
