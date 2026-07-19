@@ -95,6 +95,7 @@ pub enum SubKind {
     Liquidations,
     Candles,
     MarkPrices,
+    FundingRates,
 }
 
 impl<Exchange, S, Kind> From<(Exchange, S, S, MarketDataInstrumentKind, Kind)>
@@ -270,7 +271,8 @@ pub fn exchange_supports_instrument_kind_sub_kind(
         (
             BinanceFuturesUsd,
             Perpetual,
-            PublicTrades | OrderBooksL1 | OrderBooksL2 | Liquidations | Candles | MarkPrices,
+            PublicTrades | OrderBooksL1 | OrderBooksL2 | Liquidations | Candles | MarkPrices
+            | FundingRates,
         ) => true,
         (Bitfinex, Spot, PublicTrades) => true,
         (Bitmex, Perpetual, PublicTrades) => true,
@@ -363,6 +365,7 @@ mod tests {
                 (SubKind::Liquidations, "liquidations"),
                 (SubKind::Candles, "candles"),
                 (SubKind::MarkPrices, "mark_prices"),
+                (SubKind::FundingRates, "funding_rates"),
             ];
 
             for (kind, expected) in cases {
@@ -678,6 +681,24 @@ mod tests {
                 &ExchangeId::BinanceFuturesUsd,
                 &MarketDataInstrumentKind::Spot,
                 SubKind::MarkPrices,
+            ));
+        }
+
+        #[test]
+        fn test_binance_futures_usd_supports_perpetual_funding_rates() {
+            assert!(exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Perpetual,
+                SubKind::FundingRates,
+            ));
+        }
+
+        #[test]
+        fn test_binance_futures_usd_rejects_spot_funding_rates() {
+            assert!(!exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Spot,
+                SubKind::FundingRates,
             ));
         }
     }
