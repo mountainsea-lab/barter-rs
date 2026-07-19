@@ -5,6 +5,7 @@ use crate::{
         book::{OrderBookEvent, OrderBookL1},
         candle::Candle,
         funding::FundingRate,
+        index_price::IndexPrice,
         liquidation::Liquidation,
         mark_price::MarkPrice,
         trade::PublicTrade,
@@ -107,6 +108,13 @@ impl<InstrumentKey> MarketEvent<InstrumentKey, DataKind> {
         }
     }
 
+    pub fn as_index_price(&self) -> Option<MarketEvent<&InstrumentKey, &IndexPrice>> {
+        match &self.kind {
+            DataKind::IndexPrice(index_price) => Some(self.as_event(index_price)),
+            _ => None,
+        }
+    }
+
     pub fn as_liquidation(&self) -> Option<MarketEvent<&InstrumentKey, &Liquidation>> {
         match &self.kind {
             DataKind::Liquidation(liquidation) => Some(self.as_event(liquidation)),
@@ -144,6 +152,7 @@ pub enum DataKind {
     Candle(Candle),
     FundingRate(FundingRate),
     MarkPrice(MarkPrice),
+    IndexPrice(IndexPrice),
     Liquidation(Liquidation),
 }
 
@@ -156,6 +165,7 @@ impl DataKind {
             DataKind::Candle(_) => "candle",
             DataKind::FundingRate(_) => "funding_rate",
             DataKind::MarkPrice(_) => "mark_price",
+            DataKind::IndexPrice(_) => "index_price",
             DataKind::Liquidation(_) => "liquidation",
         }
     }
@@ -257,6 +267,22 @@ impl<InstrumentKey> From<MarketEvent<InstrumentKey, MarkPrice>>
     }
 }
 
+impl<InstrumentKey> From<MarketStreamResult<InstrumentKey, IndexPrice>>
+    for MarketStreamResult<InstrumentKey, DataKind>
+{
+    fn from(value: MarketStreamResult<InstrumentKey, IndexPrice>) -> Self {
+        value.map_ok(MarketEvent::from)
+    }
+}
+
+impl<InstrumentKey> From<MarketEvent<InstrumentKey, IndexPrice>>
+    for MarketEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketEvent<InstrumentKey, IndexPrice>) -> Self {
+        value.map_kind(IndexPrice::into)
+    }
+}
+
 impl<InstrumentKey> From<MarketStreamResult<InstrumentKey, Liquidation>>
     for MarketStreamResult<InstrumentKey, DataKind>
 {
@@ -326,5 +352,27 @@ mod tests {
         let mark_price_event = data_kind_event.as_mark_price().unwrap();
         assert_eq!(mark_price_event.kind.mark_price, dec!(11793.63104562));
         assert_eq!(mark_price_event.kind.index_price, dec!(11791.23456789));
+    }
+
+    #[test]
+    fn index_price_event_converts_to_data_kind() {
+        let time = Utc::now();
+        let event = MarketEvent {
+            time_exchange: time,
+            time_received: time,
+            exchange: ExchangeId::BinanceFuturesUsd,
+            instrument: "btc-usdt-perp",
+            kind: IndexPrice {
+                event_time: time,
+                index_price: dec!(11791.23456789),
+            },
+        };
+
+        let data_kind_event = MarketEvent::<_, DataKind>::from(event);
+
+        assert_eq!(data_kind_event.kind.kind_name(), "index_price");
+        let index_price_event = data_kind_event.as_index_price().unwrap();
+        assert_eq!(index_price_event.kind.event_time, time);
+        assert_eq!(index_price_event.kind.index_price, dec!(11791.23456789));
     }
 }
