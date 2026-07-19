@@ -86,6 +86,7 @@ where
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Deserialize, Serialize,
 )]
+#[serde(rename_all = "snake_case")]
 pub enum SubKind {
     PublicTrades,
     OrderBooksL1,
@@ -351,6 +352,27 @@ mod tests {
             subscription::trade::PublicTrades,
         };
         use barter_instrument::instrument::market_data::MarketDataInstrument;
+
+        #[test]
+        fn sub_kind_serde_uses_subscription_kind_strings() {
+            let cases = [
+                (SubKind::PublicTrades, "public_trades"),
+                (SubKind::OrderBooksL1, "order_books_l1"),
+                (SubKind::OrderBooksL2, "order_books_l2"),
+                (SubKind::OrderBooksL3, "order_books_l3"),
+                (SubKind::Liquidations, "liquidations"),
+                (SubKind::Candles, "candles"),
+                (SubKind::MarkPrices, "mark_prices"),
+            ];
+
+            for (kind, expected) in cases {
+                assert_eq!(serde_json::to_value(kind).unwrap(), expected);
+                assert_eq!(
+                    serde_json::from_str::<SubKind>(&format!("\"{expected}\"")).unwrap(),
+                    kind
+                );
+            }
+        }
 
         mod de {
             use super::*;
