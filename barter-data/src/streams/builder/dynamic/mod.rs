@@ -1211,6 +1211,23 @@ mod tests {
     }
 
     #[test]
+    fn channels_reject_open_interests_runtime_without_rest_source() {
+        let batches: Vec<Vec<Subscription<ExchangeId, MarketDataInstrument, SubKind>>> =
+            vec![vec![Subscription::new(
+                ExchangeId::BinanceFuturesUsd,
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
+                SubKind::OpenInterests,
+            )]];
+
+        let actual = Channels::try_from(&batches);
+
+        match actual {
+            Err(error) => assert_eq!(error, DataError::UnsupportedSubKind(SubKind::OpenInterests)),
+            Ok(_) => panic!("OpenInterests dynamic channel allocation should be unsupported"),
+        }
+    }
+
+    #[test]
     fn dynamic_streams_can_select_mark_price_streams() {
         let mut streams = DynamicStreams::<MarketDataInstrument> {
             trades: VecMap::new(),
