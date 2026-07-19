@@ -78,6 +78,8 @@ impl BinanceFuturesUsdMarkPriceFetcher {
                 let row = reqwest::get(url)
                     .await
                     .map_err(barter_integration::error::SocketError::Http)?
+                    .error_for_status()
+                    .map_err(barter_integration::error::SocketError::Http)?
                     .json::<BinanceFuturesMarkPriceRest>()
                     .await
                     .map_err(barter_integration::error::SocketError::Http)?;
@@ -332,6 +334,16 @@ mod tests {
         assert_eq!(
             mark_price_url("BTCUSDT"),
             "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT"
+        );
+    }
+
+    #[test]
+    fn mark_price_fetcher_surfaces_http_error_statuses() {
+        let source = include_str!("mark_price.rs");
+
+        assert!(
+            source.matches(".error_for_status()").count() >= 2,
+            "mark price REST fetcher must call error_for_status() before JSON decoding"
         );
     }
 
