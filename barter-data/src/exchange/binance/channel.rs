@@ -48,6 +48,11 @@ impl BinanceChannel {
     /// See docs: <https://binance-docs.github.io/apidocs/futures/en/#kline-candlestick-streams>
     pub const CANDLES_1M: Self = Self("@kline_1m");
 
+    /// [`BinanceFuturesUsd`] one second mark price channel name.
+    ///
+    /// See docs: <https://binance-docs.github.io/apidocs/futures/en/#mark-price-stream>
+    pub const MARK_PRICE_1S: Self = Self("@markPrice@1s");
+
     /// [`BinanceFuturesUsd`] liquidation orders channel name.
     ///
     /// See docs: <https://binance-docs.github.io/apidocs/futures/en/#liquidation-order-streams>

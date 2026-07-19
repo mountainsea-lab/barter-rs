@@ -25,6 +25,9 @@ pub mod candle;
 /// Funding rate REST types and fetcher.
 pub mod funding;
 
+/// Mark price REST and WebSocket types.
+pub mod mark_price;
+
 /// Level 2 OrderBook types.
 pub mod l2;
 
