@@ -1,4 +1,7 @@
-use self::{candle::BinanceFuturesKline, liquidation::BinanceLiquidation};
+use self::{
+    candle::BinanceFuturesKline, liquidation::BinanceLiquidation,
+    mark_price::BinanceFuturesMarkPriceWs,
+};
 use super::{Binance, ExchangeServer};
 use crate::{
     NoInitialSnapshots,
@@ -13,7 +16,9 @@ use crate::{
         },
     },
     instrument::InstrumentData,
-    subscription::{book::OrderBooksL2, candle::Candles, liquidation::Liquidations},
+    subscription::{
+        book::OrderBooksL2, candle::Candles, liquidation::Liquidations, mark_price::MarkPrices,
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -69,6 +74,16 @@ where
     type SnapFetcher = NoInitialSnapshots;
     type Stream =
         BinanceWsStream<StatelessTransformer<Self, Instrument::Key, Candles, BinanceFuturesKline>>;
+}
+
+impl<Instrument> StreamSelector<Instrument, MarkPrices> for BinanceFuturesUsd
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream = BinanceWsStream<
+        StatelessTransformer<Self, Instrument::Key, MarkPrices, BinanceFuturesMarkPriceWs>,
+    >;
 }
 
 impl<Instrument> StreamSelector<Instrument, Liquidations> for BinanceFuturesUsd

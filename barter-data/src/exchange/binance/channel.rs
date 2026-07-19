@@ -6,6 +6,7 @@ use crate::{
         book::{OrderBooksL1, OrderBooksL2},
         candle::Candles,
         liquidation::Liquidations,
+        mark_price::MarkPrices,
         trade::PublicTrades,
     },
 };
@@ -92,6 +93,14 @@ impl<Instrument> Identifier<BinanceChannel>
 }
 
 impl<Instrument> Identifier<BinanceChannel>
+    for Subscription<BinanceFuturesUsd, Instrument, MarkPrices>
+{
+    fn id(&self) -> BinanceChannel {
+        BinanceChannel::MARK_PRICE_1S
+    }
+}
+
+impl<Instrument> Identifier<BinanceChannel>
     for Subscription<BinanceFuturesUsd, Instrument, Liquidations>
 {
     fn id(&self) -> BinanceChannel {
@@ -102,5 +111,31 @@ impl<Instrument> Identifier<BinanceChannel>
 impl AsRef<str> for BinanceChannel {
     fn as_ref(&self) -> &str {
         self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::exchange::{ExchangeSub, binance::market::BinanceMarket};
+    use barter_instrument::instrument::market_data::{
+        MarketDataInstrument, kind::MarketDataInstrumentKind,
+    };
+
+    #[test]
+    fn binance_futures_mark_price_subscription_uses_one_second_channel() {
+        let subscription: Subscription<BinanceFuturesUsd, MarketDataInstrument, MarkPrices> =
+            Subscription::new(
+                BinanceFuturesUsd::default(),
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
+                MarkPrices,
+            );
+
+        let channel: BinanceChannel = subscription.id();
+        let market: BinanceMarket = subscription.id();
+        let exchange_sub = ExchangeSub::from((channel, market));
+
+        assert_eq!(exchange_sub.channel, BinanceChannel::MARK_PRICE_1S);
+        assert_eq!(exchange_sub.id().as_ref(), "@markPrice@1s|BTCUSDT");
     }
 }
