@@ -23,6 +23,9 @@ pub mod candle;
 /// Funding rate [`SubscriptionKind`] and the associated Barter output data model.
 pub mod funding;
 
+/// Index price [`SubscriptionKind`] and the associated Barter output data model.
+pub mod index_price;
+
 /// Mark price [`SubscriptionKind`] and the associated Barter output data model.
 pub mod mark_price;
 
@@ -96,6 +99,7 @@ pub enum SubKind {
     Candles,
     MarkPrices,
     FundingRates,
+    IndexPrices,
 }
 
 impl<Exchange, S, Kind> From<(Exchange, S, S, MarketDataInstrumentKind, Kind)>
@@ -272,7 +276,7 @@ pub fn exchange_supports_instrument_kind_sub_kind(
             BinanceFuturesUsd,
             Perpetual,
             PublicTrades | OrderBooksL1 | OrderBooksL2 | Liquidations | Candles | MarkPrices
-            | FundingRates,
+            | FundingRates | IndexPrices,
         ) => true,
         (Bitfinex, Spot, PublicTrades) => true,
         (Bitmex, Perpetual, PublicTrades) => true,
@@ -366,6 +370,7 @@ mod tests {
                 (SubKind::Candles, "candles"),
                 (SubKind::MarkPrices, "mark_prices"),
                 (SubKind::FundingRates, "funding_rates"),
+                (SubKind::IndexPrices, "index_prices"),
             ];
 
             for (kind, expected) in cases {
@@ -583,6 +588,20 @@ mod tests {
                     }
                 }
             }
+        }
+
+        #[test]
+        fn binance_futures_usd_supports_perpetual_index_prices_only() {
+            assert!(exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Perpetual,
+                SubKind::IndexPrices,
+            ));
+            assert!(!exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Spot,
+                SubKind::IndexPrices,
+            ));
         }
     }
 
