@@ -37,6 +37,9 @@ pub mod mark_price;
 /// Index price REST and WebSocket types.
 pub mod index_price;
 
+/// Open interest REST types and fetcher.
+pub mod open_interest;
+
 /// Level 2 OrderBook types.
 pub mod l2;
 
