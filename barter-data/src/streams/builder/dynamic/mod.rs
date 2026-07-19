@@ -1096,6 +1096,23 @@ mod tests {
     }
 
     #[test]
+    fn channels_reject_funding_rates_runtime_without_rest_source() {
+        let batches: Vec<Vec<Subscription<ExchangeId, MarketDataInstrument, SubKind>>> =
+            vec![vec![Subscription::new(
+                ExchangeId::BinanceFuturesUsd,
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
+                SubKind::FundingRates,
+            )]];
+
+        let actual = Channels::try_from(&batches);
+
+        match actual {
+            Err(error) => assert_eq!(error, DataError::UnsupportedSubKind(SubKind::FundingRates)),
+            Ok(_) => panic!("FundingRates dynamic channel allocation should be unsupported"),
+        }
+    }
+
+    #[test]
     fn dynamic_streams_can_select_mark_price_streams() {
         let mut streams = DynamicStreams::<MarketDataInstrument> {
             trades: VecMap::new(),
