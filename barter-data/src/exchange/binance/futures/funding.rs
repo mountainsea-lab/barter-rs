@@ -110,6 +110,8 @@ impl BinanceFuturesUsdFundingRateFetcher {
                 let rows = reqwest::get(funding_url)
                     .await
                     .map_err(barter_integration::error::SocketError::Http)?
+                    .error_for_status()
+                    .map_err(barter_integration::error::SocketError::Http)?
                     .json::<Vec<BinanceFuturesFundingRate>>()
                     .await
                     .map_err(barter_integration::error::SocketError::Http)?;
