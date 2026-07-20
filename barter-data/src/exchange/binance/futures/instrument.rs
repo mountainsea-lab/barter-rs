@@ -1,5 +1,36 @@
+use barter_instrument::{
+    Underlying,
+    asset::name::AssetNameInternal,
+    exchange::ExchangeId,
+    instrument::{
+        Instrument,
+        kind::{InstrumentKind, perpetual::PerpetualContract},
+        name::InstrumentNameInternal,
+        quote::InstrumentQuoteAsset,
+        spec::{
+            InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
+            OrderQuantityUnits,
+        },
+    },
+};
 use rust_decimal::Decimal;
 use serde::Deserialize;
+
+/// Error normalising Binance USD-M Futures symbol metadata into Barter instruments.
+#[derive(Clone, PartialEq, Eq, Debug, thiserror::Error)]
+pub enum BinanceFuturesInstrumentError {
+    #[error("missing required Binance futures symbol filter {filter} for {symbol}")]
+    MissingFilter {
+        symbol: String,
+        filter: &'static str,
+    },
+    #[error("Binance futures symbol {symbol} is not a trading perpetual: contract_type={contract_type}, status={status}")]
+    NotTradingPerpetual {
+        symbol: String,
+        contract_type: String,
+        status: String,
+    },
+}
 
 /// Binance USD-M Futures exchangeInfo HTTP url.
 ///
@@ -11,6 +42,16 @@ pub const HTTP_EXCHANGE_INFO_URL_BINANCE_FUTURES_USD: &str =
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
 pub struct BinanceFuturesExchangeInfo {
     pub symbols: Vec<BinanceFuturesSymbolInfo>,
+}
+
+impl BinanceFuturesExchangeInfo {
+    pub fn usd_m_perpetual_instruments(&self) -> Vec<Instrument<ExchangeId, AssetNameInternal>> {
+        self.symbols
+            .iter()
+            .filter(|symbol| symbol.is_trading_perpetual())
+            .filter_map(|symbol| symbol.try_into_usd_m_perpetual_instrument().ok())
+            .collect()
+    }
 }
 
 /// Binance USD-M Futures symbol metadata from exchangeInfo.
@@ -39,6 +80,75 @@ pub struct BinanceFuturesSymbolInfo {
 }
 
 impl BinanceFuturesSymbolInfo {
+    pub fn is_trading_perpetual(&self) -> bool {
+        self.contract_type == "PERPETUAL" && self.status == "TRADING"
+    }
+
+    pub fn try_into_usd_m_perpetual_instrument(
+        &self,
+    ) -> Result<Instrument<ExchangeId, AssetNameInternal>, BinanceFuturesInstrumentError> {
+        if !self.is_trading_perpetual() {
+            return Err(BinanceFuturesInstrumentError::NotTradingPerpetual {
+                symbol: self.symbol.clone(),
+                contract_type: self.contract_type.clone(),
+                status: self.status.clone(),
+            });
+        }
+
+        let price_filter =
+            self.price_filter()
+                .ok_or_else(|| BinanceFuturesInstrumentError::MissingFilter {
+                    symbol: self.symbol.clone(),
+                    filter: "PRICE_FILTER",
+                })?;
+        let lot_size_filter =
+            self.lot_size_filter()
+                .ok_or_else(|| BinanceFuturesInstrumentError::MissingFilter {
+                    symbol: self.symbol.clone(),
+                    filter: "LOT_SIZE",
+                })?;
+        let min_notional_filter = self.min_notional_filter().ok_or_else(|| {
+            BinanceFuturesInstrumentError::MissingFilter {
+                symbol: self.symbol.clone(),
+                filter: "MIN_NOTIONAL",
+            }
+        })?;
+
+        Ok(Instrument::new(
+            ExchangeId::BinanceFuturesUsd,
+            InstrumentNameInternal::new_from_exchange(
+                ExchangeId::BinanceFuturesUsd,
+                self.symbol.as_str(),
+            ),
+            self.symbol.as_str(),
+            Underlying::new(
+                AssetNameInternal::from(self.base_asset.as_str()),
+                AssetNameInternal::from(self.quote_asset.as_str()),
+            ),
+            InstrumentQuoteAsset::UnderlyingQuote,
+            InstrumentKind::Perpetual(PerpetualContract {
+                contract_size: Decimal::ONE,
+                settlement_asset: AssetNameInternal::from(self.margin_asset.as_str()),
+            }),
+            Some(InstrumentSpec {
+                price: InstrumentSpecPrice {
+                    min: price_filter.min_price,
+                    tick_size: price_filter.tick_size,
+                },
+                quantity: InstrumentSpecQuantity {
+                    unit: OrderQuantityUnits::Asset(AssetNameInternal::from(
+                        self.base_asset.as_str(),
+                    )),
+                    min: lot_size_filter.min_qty,
+                    increment: lot_size_filter.step_size,
+                },
+                notional: InstrumentSpecNotional {
+                    min: min_notional_filter.notional,
+                },
+            }),
+        ))
+    }
+
     pub fn price_filter(&self) -> Option<&BinanceFuturesPriceFilter> {
         self.filters.iter().find_map(|filter| match filter {
             BinanceFuturesSymbolFilter::PriceFilter(filter) => Some(filter),
@@ -112,6 +222,21 @@ pub struct BinanceFuturesMinNotionalFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use barter_instrument::{
+        Underlying,
+        asset::name::AssetNameInternal,
+        exchange::ExchangeId,
+        instrument::{
+            Instrument,
+            kind::{InstrumentKind, perpetual::PerpetualContract},
+            name::InstrumentNameInternal,
+            quote::InstrumentQuoteAsset,
+            spec::{
+                InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice,
+                InstrumentSpecQuantity, OrderQuantityUnits,
+            },
+        },
+    };
     use rust_decimal_macros::dec;
 
     fn exchange_info_fixture() -> &'static str {
@@ -209,6 +334,188 @@ mod tests {
                 .filters
                 .iter()
                 .any(|filter| matches!(filter, BinanceFuturesSymbolFilter::Other))
+        );
+    }
+
+    #[test]
+    fn trading_perpetual_symbol_normalises_to_barter_instrument_with_specs() {
+        let actual = serde_json::from_str::<BinanceFuturesExchangeInfo>(exchange_info_fixture())
+            .unwrap()
+            .symbols
+            .into_iter()
+            .next()
+            .unwrap()
+            .try_into_usd_m_perpetual_instrument()
+            .unwrap();
+
+        let expected = Instrument::new(
+            ExchangeId::BinanceFuturesUsd,
+            InstrumentNameInternal::new_from_exchange(ExchangeId::BinanceFuturesUsd, "BTCUSDT"),
+            "BTCUSDT",
+            Underlying::new(
+                AssetNameInternal::from("BTC"),
+                AssetNameInternal::from("USDT"),
+            ),
+            InstrumentQuoteAsset::UnderlyingQuote,
+            InstrumentKind::Perpetual(PerpetualContract {
+                contract_size: Decimal::ONE,
+                settlement_asset: AssetNameInternal::from("USDT"),
+            }),
+            Some(InstrumentSpec {
+                price: InstrumentSpecPrice {
+                    min: dec!(0.10),
+                    tick_size: dec!(0.10),
+                },
+                quantity: InstrumentSpecQuantity {
+                    unit: OrderQuantityUnits::Asset(AssetNameInternal::from("BTC")),
+                    min: dec!(0.001),
+                    increment: dec!(0.001),
+                },
+                notional: InstrumentSpecNotional {
+                    min: dec!(100.00000000),
+                },
+            }),
+        );
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn exchange_info_discovers_only_trading_perpetual_instruments() {
+        let fixture = r#"
+        {
+            "symbols": [
+                {
+                    "symbol": "BTCUSDT",
+                    "pair": "BTCUSDT",
+                    "contractType": "PERPETUAL",
+                    "status": "TRADING",
+                    "baseAsset": "BTC",
+                    "quoteAsset": "USDT",
+                    "marginAsset": "USDT",
+                    "pricePrecision": 2,
+                    "quantityPrecision": 3,
+                    "onboardDate": 1569398400000,
+                    "deliveryDate": 4133404800000,
+                    "filters": [
+                        { "filterType": "PRICE_FILTER", "minPrice": "0.10", "tickSize": "0.10" },
+                        { "filterType": "LOT_SIZE", "minQty": "0.001", "stepSize": "0.001" },
+                        { "filterType": "MIN_NOTIONAL", "notional": "100.00000000" }
+                    ]
+                },
+                {
+                    "symbol": "ETHUSDT",
+                    "pair": "ETHUSDT",
+                    "contractType": "PERPETUAL",
+                    "status": "BREAK",
+                    "baseAsset": "ETH",
+                    "quoteAsset": "USDT",
+                    "marginAsset": "USDT",
+                    "pricePrecision": 2,
+                    "quantityPrecision": 3,
+                    "onboardDate": 1569398400000,
+                    "deliveryDate": 4133404800000,
+                    "filters": []
+                },
+                {
+                    "symbol": "BTCUSDT_240927",
+                    "pair": "BTCUSDT",
+                    "contractType": "CURRENT_QUARTER",
+                    "status": "TRADING",
+                    "baseAsset": "BTC",
+                    "quoteAsset": "USDT",
+                    "marginAsset": "USDT",
+                    "pricePrecision": 2,
+                    "quantityPrecision": 3,
+                    "onboardDate": 1569398400000,
+                    "deliveryDate": 1727424000000,
+                    "filters": []
+                },
+                {
+                    "symbol": "SOLUSDT",
+                    "pair": "SOLUSDT",
+                    "contractType": "PERPETUAL",
+                    "status": "TRADING",
+                    "baseAsset": "SOL",
+                    "quoteAsset": "USDT",
+                    "marginAsset": "USDT",
+                    "pricePrecision": 2,
+                    "quantityPrecision": 0,
+                    "onboardDate": 1569398400000,
+                    "deliveryDate": 4133404800000,
+                    "filters": []
+                }
+            ]
+        }
+        "#;
+        let exchange_info = serde_json::from_str::<BinanceFuturesExchangeInfo>(fixture).unwrap();
+
+        let actual = exchange_info.usd_m_perpetual_instruments();
+
+        assert_eq!(actual.len(), 1);
+        assert_eq!(actual[0].name_exchange.name().as_str(), "BTCUSDT");
+    }
+
+    #[test]
+    fn missing_required_filters_return_deterministic_conversion_error() {
+        let symbol = serde_json::from_str::<BinanceFuturesExchangeInfo>(exchange_info_fixture())
+            .unwrap()
+            .symbols
+            .into_iter()
+            .next()
+            .unwrap();
+
+        let mut missing_price_filter = symbol.clone();
+        missing_price_filter.filters.remove(0);
+        assert_eq!(
+            missing_price_filter.try_into_usd_m_perpetual_instrument(),
+            Err(BinanceFuturesInstrumentError::MissingFilter {
+                symbol: "BTCUSDT".to_owned(),
+                filter: "PRICE_FILTER"
+            })
+        );
+
+        let mut missing_lot_size = symbol.clone();
+        missing_lot_size.filters.remove(1);
+        assert_eq!(
+            missing_lot_size.try_into_usd_m_perpetual_instrument(),
+            Err(BinanceFuturesInstrumentError::MissingFilter {
+                symbol: "BTCUSDT".to_owned(),
+                filter: "LOT_SIZE"
+            })
+        );
+
+        let mut missing_min_notional = symbol;
+        missing_min_notional.filters.retain(|filter| {
+            !matches!(filter, BinanceFuturesSymbolFilter::MinNotional(_))
+        });
+        assert_eq!(
+            missing_min_notional.try_into_usd_m_perpetual_instrument(),
+            Err(BinanceFuturesInstrumentError::MissingFilter {
+                symbol: "BTCUSDT".to_owned(),
+                filter: "MIN_NOTIONAL"
+            })
+        );
+    }
+
+    #[test]
+    fn non_trading_perpetual_returns_conversion_error() {
+        let mut symbol = serde_json::from_str::<BinanceFuturesExchangeInfo>(exchange_info_fixture())
+            .unwrap()
+            .symbols
+            .into_iter()
+            .next()
+            .unwrap();
+        symbol.status = "BREAK".to_owned();
+
+        assert!(!symbol.is_trading_perpetual());
+        assert_eq!(
+            symbol.try_into_usd_m_perpetual_instrument(),
+            Err(BinanceFuturesInstrumentError::NotTradingPerpetual {
+                symbol: "BTCUSDT".to_owned(),
+                contract_type: "PERPETUAL".to_owned(),
+                status: "BREAK".to_owned(),
+            })
         );
     }
 }
