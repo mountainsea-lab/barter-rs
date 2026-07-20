@@ -16,14 +16,18 @@ pub const HTTP_TAKER_LONG_SHORT_RATIO_URL_BINANCE_FUTURES_USD: &str =
     "https://fapi.binance.com/futures/data/takerlongshortRatio";
 
 pub fn taker_flow_url(symbol: &str, period: &str, limit: Option<u16>) -> String {
-    match limit {
-        Some(limit) => format!(
-            "{HTTP_TAKER_LONG_SHORT_RATIO_URL_BINANCE_FUTURES_USD}?symbol={symbol}&period={period}&limit={limit}"
-        ),
-        None => format!(
-            "{HTTP_TAKER_LONG_SHORT_RATIO_URL_BINANCE_FUTURES_USD}?symbol={symbol}&period={period}"
-        ),
+    let mut url = reqwest::Url::parse(HTTP_TAKER_LONG_SHORT_RATIO_URL_BINANCE_FUTURES_USD)
+        .expect("Binance Futures taker flow URL constant must be valid");
+    {
+        let mut query = url.query_pairs_mut();
+        query
+            .append_pair("symbol", symbol)
+            .append_pair("period", period);
+        if let Some(limit) = limit {
+            query.append_pair("limit", &limit.to_string());
+        }
     }
+    url.to_string()
 }
 
 #[derive(Debug)]
@@ -202,6 +206,14 @@ mod tests {
         assert_eq!(
             taker_flow_url("BTCUSDT", "1h", None),
             "https://fapi.binance.com/futures/data/takerlongshortRatio?symbol=BTCUSDT&period=1h"
+        );
+    }
+
+    #[test]
+    fn taker_flow_url_percent_encodes_query_parameters() {
+        assert_eq!(
+            taker_flow_url("BTC&evil=1 USDT", "5m&limit=999", Some(30)),
+            "https://fapi.binance.com/futures/data/takerlongshortRatio?symbol=BTC%26evil%3D1+USDT&period=5m%26limit%3D999&limit=30"
         );
     }
 
