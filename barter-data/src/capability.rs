@@ -218,6 +218,14 @@ mod tests {
             .expect("Binance USD-M Futures capability descriptor should exist")
     }
 
+    fn capability(sub_kind: SubKind) -> &'static DataCapability {
+        binance_futures_usd_descriptor()
+            .capabilities
+            .iter()
+            .find(|capability| capability.sub_kind == sub_kind)
+            .unwrap_or_else(|| panic!("missing capability for {sub_kind:?}"))
+    }
+
     #[test]
     fn binance_futures_usd_descriptor_exists() {
         let descriptor = binance_futures_usd_descriptor();
@@ -311,5 +319,123 @@ mod tests {
             &MarketDataInstrumentKind::Perpetual,
             SubKind::PublicTrades,
         ));
+    }
+
+    #[test]
+    fn rest_only_surfaces_are_not_dynamic_stream_capable() {
+        for sub_kind in [
+            SubKind::FundingRates,
+            SubKind::OpenInterests,
+            SubKind::TakerFlows,
+        ] {
+            let capability = capability(sub_kind);
+            assert_eq!(
+                capability.dynamic_stream,
+                DynamicStreamCapability::Unsupported,
+                "{sub_kind:?} should be REST-only and not DynamicStreams capable"
+            );
+            assert_eq!(capability.transports, REST_FETCH);
+            assert!(
+                !capability.transports.contains(&TransportKind::WebSocket),
+                "{sub_kind:?} should not declare WebSocket transport"
+            );
+        }
+    }
+
+    #[test]
+    fn websocket_surfaces_are_dynamic_stream_capable() {
+        for sub_kind in [
+            SubKind::PublicTrades,
+            SubKind::OrderBooksL1,
+            SubKind::OrderBooksL2,
+            SubKind::Candles,
+            SubKind::Liquidations,
+            SubKind::MarkPrices,
+            SubKind::IndexPrices,
+        ] {
+            let capability = capability(sub_kind);
+            assert_eq!(
+                capability.dynamic_stream,
+                DynamicStreamCapability::Supported,
+                "{sub_kind:?} should be DynamicStreams capable"
+            );
+            assert!(
+                capability.transports.contains(&TransportKind::WebSocket),
+                "{sub_kind:?} should declare WebSocket transport"
+            );
+        }
+    }
+
+    #[test]
+    fn mark_and_index_prices_declare_websocket_and_rest_fetch() {
+        for sub_kind in [SubKind::MarkPrices, SubKind::IndexPrices] {
+            let capability = capability(sub_kind);
+            assert!(capability.transports.contains(&TransportKind::WebSocket));
+            assert!(capability.transports.contains(&TransportKind::RestFetch));
+        }
+    }
+
+    #[test]
+    fn history_capabilities_match_existing_fetchers() {
+        assert_eq!(
+            capability(SubKind::FundingRates).history,
+            HistoryCapability::HistoricalRange
+        );
+        assert_eq!(
+            capability(SubKind::OpenInterests).history,
+            HistoryCapability::LatestOnly
+        );
+        assert_eq!(
+            capability(SubKind::TakerFlows).history,
+            HistoryCapability::RecentWindow
+        );
+        assert_eq!(
+            capability(SubKind::MarkPrices).history,
+            HistoryCapability::LatestOnly
+        );
+        assert_eq!(
+            capability(SubKind::IndexPrices).history,
+            HistoryCapability::LatestOnly
+        );
+    }
+
+    #[test]
+    fn reference_discovery_is_not_a_synthetic_sub_kind() {
+        let descriptor = binance_futures_usd_descriptor();
+
+        assert_eq!(descriptor.reference_capabilities.len(), 1);
+        assert_eq!(
+            descriptor.reference_capabilities[0].data_kind,
+            CapabilityDataKind::Instrument
+        );
+        assert_eq!(descriptor.reference_capabilities[0].transports, REST_FETCH);
+        assert_eq!(
+            descriptor.reference_capabilities[0].history,
+            HistoryCapability::LatestOnly
+        );
+        assert!(
+            descriptor
+                .capabilities
+                .iter()
+                .all(|capability| capability.data_kind != CapabilityDataKind::Instrument),
+            "Instrument discovery should live in reference_capabilities, not SubKind-backed capabilities"
+        );
+    }
+
+    #[test]
+    fn capability_error_kinds_are_stable_bridge_categories() {
+        let categories = [
+            CapabilityErrorKind::UnsupportedCapability,
+            CapabilityErrorKind::UnsupportedDynamicStream,
+            CapabilityErrorKind::RestFetchFailed,
+            CapabilityErrorKind::DecodeFailed,
+            CapabilityErrorKind::TransportDisconnected,
+        ];
+
+        assert_eq!(categories.len(), 5);
+        assert_eq!(
+            format!("{:?}", CapabilityErrorKind::UnsupportedDynamicStream),
+            "UnsupportedDynamicStream"
+        );
     }
 }
