@@ -40,6 +40,28 @@ pub enum BinanceFuturesInstrumentError {
 pub const HTTP_EXCHANGE_INFO_URL_BINANCE_FUTURES_USD: &str =
     "https://fapi.binance.com/fapi/v1/exchangeInfo";
 
+pub fn exchange_info_url() -> String {
+    HTTP_EXCHANGE_INFO_URL_BINANCE_FUTURES_USD.to_owned()
+}
+
+pub async fn fetch_exchange_info()
+-> Result<BinanceFuturesExchangeInfo, barter_integration::error::SocketError> {
+    fetch_exchange_info_url(exchange_info_url()).await
+}
+
+async fn fetch_exchange_info_url(
+    url: String,
+) -> Result<BinanceFuturesExchangeInfo, barter_integration::error::SocketError> {
+    reqwest::get(url)
+        .await
+        .map_err(barter_integration::error::SocketError::Http)?
+        .error_for_status()
+        .map_err(barter_integration::error::SocketError::Http)?
+        .json::<BinanceFuturesExchangeInfo>()
+        .await
+        .map_err(barter_integration::error::SocketError::Http)
+}
+
 /// Binance USD-M Futures exchangeInfo response.
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
 pub struct BinanceFuturesExchangeInfo {
@@ -240,6 +262,10 @@ mod tests {
         },
     };
     use rust_decimal_macros::dec;
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
 
     fn exchange_info_fixture() -> &'static str {
         r#"
@@ -293,6 +319,73 @@ mod tests {
             HTTP_EXCHANGE_INFO_URL_BINANCE_FUTURES_USD,
             "https://fapi.binance.com/fapi/v1/exchangeInfo"
         );
+    }
+
+    #[test]
+    fn exchange_info_public_crate_path_exports_instrument_module() {
+        assert_eq!(
+            crate::exchange::binance::futures::instrument::HTTP_EXCHANGE_INFO_URL_BINANCE_FUTURES_USD,
+            "https://fapi.binance.com/fapi/v1/exchangeInfo"
+        );
+    }
+
+    #[test]
+    fn exchange_info_url_helper_targets_binance_futures_usd_endpoint() {
+        assert_eq!(
+            exchange_info_url(),
+            HTTP_EXCHANGE_INFO_URL_BINANCE_FUTURES_USD
+        );
+    }
+
+    #[tokio::test]
+    async fn exchange_info_fetch_url_surfaces_non_success_http_status() {
+        let url = spawn_http_response(
+            "HTTP/1.1 418 I'm a teapot\r\ncontent-type: application/json\r\ncontent-length: 8\r\n\r\nnot-json".to_owned(),
+        )
+        .await;
+
+        let actual = fetch_exchange_info_url(url).await.unwrap_err();
+
+        match actual {
+            barter_integration::error::SocketError::Http(error) => {
+                assert_eq!(error.status(), Some(reqwest::StatusCode::IM_A_TEAPOT));
+            }
+            error => panic!("expected HTTP status error, got {error:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn exchange_info_fetch_url_decodes_valid_fixture_response() {
+        let body = exchange_info_fixture();
+        let url = spawn_http_response(format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{}",
+            body.len(),
+            body
+        ))
+        .await;
+
+        let actual = fetch_exchange_info_url(url).await.unwrap();
+
+        assert_eq!(actual.symbols.len(), 1);
+        assert_eq!(actual.symbols[0].symbol, "BTCUSDT");
+        assert_eq!(
+            actual.symbols[0].price_filter().unwrap().tick_size,
+            dec!(0.10)
+        );
+    }
+
+    async fn spawn_http_response(response: String) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0; 1024];
+            let _ = stream.read(&mut request).await.unwrap();
+            stream.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        format!("http://{address}/fapi/v1/exchangeInfo")
     }
 
     #[test]

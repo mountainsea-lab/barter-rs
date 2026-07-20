@@ -37,7 +37,8 @@ pub mod mark_price;
 /// Index price REST and WebSocket types.
 pub mod index_price;
 
-mod instrument;
+/// Instrument reference discovery REST types and fetcher.
+pub mod instrument;
 
 /// Open interest REST types and fetcher.
 pub mod open_interest;
