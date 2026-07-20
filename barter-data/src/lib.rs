@@ -148,6 +148,9 @@ pub mod instrument;
 /// a collection of sorted local Instrument [`OrderBook`](books::OrderBook)s
 pub mod books;
 
+/// Static provider capability descriptors used by bridge and validation consumers.
+pub mod capability;
+
 /// Generic [`ExchangeTransformer`] implementations used by [`MarketStream`]s to translate exchange
 /// specific types to normalised Barter types.
 ///
