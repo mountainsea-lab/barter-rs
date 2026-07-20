@@ -259,10 +259,12 @@ mod tests {
 
     #[test]
     fn every_binance_futures_support_matrix_sub_kind_has_descriptor_entry() {
-        let supported = [
+        let descriptor = binance_futures_usd_descriptor();
+        let all_sub_kinds = [
             SubKind::PublicTrades,
             SubKind::OrderBooksL1,
             SubKind::OrderBooksL2,
+            SubKind::OrderBooksL3,
             SubKind::Liquidations,
             SubKind::Candles,
             SubKind::MarkPrices,
@@ -272,14 +274,20 @@ mod tests {
             SubKind::TakerFlows,
         ];
 
-        for sub_kind in supported {
-            assert!(
-                binance_futures_usd_descriptor()
-                    .capabilities
-                    .iter()
-                    .any(|capability| capability.sub_kind == sub_kind),
-                "support matrix sub_kind {sub_kind:?} should have a descriptor capability"
-            );
+        for sub_kind in all_sub_kinds {
+            if exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Perpetual,
+                sub_kind,
+            ) {
+                assert!(
+                    descriptor
+                        .capabilities
+                        .iter()
+                        .any(|capability| capability.sub_kind == sub_kind),
+                    "support matrix sub_kind {sub_kind:?} should have a descriptor capability"
+                );
+            }
         }
     }
 
