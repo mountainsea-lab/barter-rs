@@ -9,6 +9,7 @@ use crate::{
         liquidation::Liquidation,
         mark_price::MarkPrice,
         open_interest::OpenInterest,
+        taker_flow::TakerFlow,
         trade::PublicTrade,
     },
 };
@@ -130,6 +131,13 @@ impl<InstrumentKey> MarketEvent<InstrumentKey, DataKind> {
         }
     }
 
+    pub fn as_taker_flow(&self) -> Option<MarketEvent<&InstrumentKey, &TakerFlow>> {
+        match &self.kind {
+            DataKind::TakerFlow(taker_flow) => Some(self.as_event(taker_flow)),
+            _ => None,
+        }
+    }
+
     fn as_event<'a, K>(&'a self, kind: &'a K) -> MarketEvent<&'a InstrumentKey, &'a K> {
         MarketEvent {
             time_exchange: self.time_exchange,
@@ -163,6 +171,7 @@ pub enum DataKind {
     IndexPrice(IndexPrice),
     OpenInterest(OpenInterest),
     Liquidation(Liquidation),
+    TakerFlow(TakerFlow),
 }
 
 impl DataKind {
@@ -177,6 +186,7 @@ impl DataKind {
             DataKind::IndexPrice(_) => "index_price",
             DataKind::OpenInterest(_) => "open_interest",
             DataKind::Liquidation(_) => "liquidation",
+            DataKind::TakerFlow(_) => "taker_flow",
         }
     }
 }
@@ -325,6 +335,22 @@ impl<InstrumentKey> From<MarketEvent<InstrumentKey, Liquidation>>
     }
 }
 
+impl<InstrumentKey> From<MarketStreamResult<InstrumentKey, TakerFlow>>
+    for MarketStreamResult<InstrumentKey, DataKind>
+{
+    fn from(value: MarketStreamResult<InstrumentKey, TakerFlow>) -> Self {
+        value.map_ok(MarketEvent::from)
+    }
+}
+
+impl<InstrumentKey> From<MarketEvent<InstrumentKey, TakerFlow>>
+    for MarketEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketEvent<InstrumentKey, TakerFlow>) -> Self {
+        value.map_kind(TakerFlow::into)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -423,5 +449,30 @@ mod tests {
         assert_eq!(actual.kind.kind_name(), "open_interest");
         let open_interest = actual.as_open_interest().unwrap();
         assert_eq!(open_interest.kind.open_interest, dec!(10659.509));
+    }
+
+    #[test]
+    fn data_kind_taker_flow_helper_returns_taker_flow_event() {
+        use crate::subscription::taker_flow::TakerFlow;
+
+        let time = Utc::now();
+        let event = MarketEvent {
+            time_exchange: time,
+            time_received: time,
+            exchange: ExchangeId::BinanceFuturesUsd,
+            instrument: "BTCUSDT",
+            kind: DataKind::TakerFlow(TakerFlow {
+                period_start: time,
+                buy_volume: dec!(387.3300),
+                sell_volume: dec!(270.0700),
+                buy_sell_ratio: dec!(1.4342),
+            }),
+        };
+
+        let actual = event.as_taker_flow().expect("taker flow event");
+        assert_eq!(actual.kind.buy_volume, dec!(387.3300));
+        assert_eq!(actual.kind.sell_volume, dec!(270.0700));
+        assert_eq!(actual.kind.buy_sell_ratio, dec!(1.4342));
+        assert_eq!(event.kind.kind_name(), "taker_flow");
     }
 }

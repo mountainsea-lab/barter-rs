@@ -32,6 +32,9 @@ pub mod mark_price;
 /// Open interest [`SubscriptionKind`] and the associated Barter output data model.
 pub mod open_interest;
 
+/// Taker flow [`SubscriptionKind`] and the associated Barter output data model.
+pub mod taker_flow;
+
 /// Liquidation [`SubscriptionKind`] and the associated Barter output data model.
 pub mod liquidation;
 
@@ -104,6 +107,7 @@ pub enum SubKind {
     FundingRates,
     IndexPrices,
     OpenInterests,
+    TakerFlows,
 }
 
 impl<Exchange, S, Kind> From<(Exchange, S, S, MarketDataInstrumentKind, Kind)>
@@ -280,7 +284,7 @@ pub fn exchange_supports_instrument_kind_sub_kind(
             BinanceFuturesUsd,
             Perpetual,
             PublicTrades | OrderBooksL1 | OrderBooksL2 | Liquidations | Candles | MarkPrices
-            | FundingRates | IndexPrices | OpenInterests,
+            | FundingRates | IndexPrices | OpenInterests | TakerFlows,
         ) => true,
         (Bitfinex, Spot, PublicTrades) => true,
         (Bitmex, Perpetual, PublicTrades) => true,
@@ -376,6 +380,7 @@ mod tests {
                 (SubKind::FundingRates, "funding_rates"),
                 (SubKind::IndexPrices, "index_prices"),
                 (SubKind::OpenInterests, "open_interests"),
+                (SubKind::TakerFlows, "taker_flows"),
             ];
 
             for (kind, expected) in cases {
@@ -606,6 +611,25 @@ mod tests {
                 &ExchangeId::BinanceFuturesUsd,
                 &MarketDataInstrumentKind::Spot,
                 SubKind::IndexPrices,
+            ));
+        }
+
+        #[test]
+        fn binance_futures_usd_supports_taker_flows_for_perpetuals_only() {
+            assert!(exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Perpetual,
+                SubKind::TakerFlows,
+            ));
+            assert!(!exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Spot,
+                SubKind::TakerFlows,
+            ));
+            assert!(!exchange_supports_instrument_kind_sub_kind(
+                &ExchangeId::BinanceSpot,
+                &MarketDataInstrumentKind::Spot,
+                SubKind::TakerFlows,
             ));
         }
     }
