@@ -208,14 +208,19 @@ pub fn supports_capability(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::subscription::exchange_supports_instrument_kind_sub_kind;
     use barter_instrument::{
         exchange::ExchangeId, instrument::market_data::kind::MarketDataInstrumentKind,
     };
 
+    fn binance_futures_usd_descriptor() -> &'static ProviderCapabilityDescriptor {
+        provider_capability(ExchangeId::BinanceFuturesUsd)
+            .expect("Binance USD-M Futures capability descriptor should exist")
+    }
+
     #[test]
     fn binance_futures_usd_descriptor_exists() {
-        let descriptor = provider_capability(ExchangeId::BinanceFuturesUsd)
-            .expect("Binance USD-M Futures capability descriptor should exist");
+        let descriptor = binance_futures_usd_descriptor();
 
         assert_eq!(descriptor.exchange, ExchangeId::BinanceFuturesUsd);
         assert!(
@@ -224,5 +229,79 @@ mod tests {
                 .contains(&MarketDataInstrumentKind::Perpetual),
             "Binance USD-M Futures descriptor should declare perpetual instruments"
         );
+    }
+
+    #[test]
+    fn binance_futures_usd_descriptor_does_not_claim_spot_support() {
+        let descriptor = binance_futures_usd_descriptor();
+
+        assert!(
+            !descriptor
+                .instrument_kinds
+                .contains(&MarketDataInstrumentKind::Spot),
+            "Binance USD-M Futures descriptor must not imply spot instrument support"
+        );
+    }
+
+    #[test]
+    fn descriptor_capabilities_match_existing_support_matrix() {
+        for capability in binance_futures_usd_descriptor().capabilities {
+            assert!(
+                exchange_supports_instrument_kind_sub_kind(
+                    &ExchangeId::BinanceFuturesUsd,
+                    &MarketDataInstrumentKind::Perpetual,
+                    capability.sub_kind,
+                ),
+                "descriptor capability {capability:?} should be supported by existing support matrix"
+            );
+        }
+    }
+
+    #[test]
+    fn every_binance_futures_support_matrix_sub_kind_has_descriptor_entry() {
+        let supported = [
+            SubKind::PublicTrades,
+            SubKind::OrderBooksL1,
+            SubKind::OrderBooksL2,
+            SubKind::Liquidations,
+            SubKind::Candles,
+            SubKind::MarkPrices,
+            SubKind::FundingRates,
+            SubKind::IndexPrices,
+            SubKind::OpenInterests,
+            SubKind::TakerFlows,
+        ];
+
+        for sub_kind in supported {
+            assert!(
+                binance_futures_usd_descriptor()
+                    .capabilities
+                    .iter()
+                    .any(|capability| capability.sub_kind == sub_kind),
+                "support matrix sub_kind {sub_kind:?} should have a descriptor capability"
+            );
+        }
+    }
+
+    #[test]
+    fn supports_capability_agrees_with_descriptor_contents() {
+        for capability in binance_futures_usd_descriptor().capabilities {
+            assert!(supports_capability(
+                ExchangeId::BinanceFuturesUsd,
+                &MarketDataInstrumentKind::Perpetual,
+                capability.sub_kind,
+            ));
+        }
+
+        assert!(!supports_capability(
+            ExchangeId::BinanceFuturesUsd,
+            &MarketDataInstrumentKind::Spot,
+            SubKind::PublicTrades,
+        ));
+        assert!(!supports_capability(
+            ExchangeId::BinanceSpot,
+            &MarketDataInstrumentKind::Perpetual,
+            SubKind::PublicTrades,
+        ));
     }
 }
