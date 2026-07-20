@@ -24,7 +24,9 @@ pub enum BinanceFuturesInstrumentError {
         symbol: String,
         filter: &'static str,
     },
-    #[error("Binance futures symbol {symbol} is not a trading perpetual: contract_type={contract_type}, status={status}")]
+    #[error(
+        "Binance futures symbol {symbol} is not a trading perpetual: contract_type={contract_type}, status={status}"
+    )]
     NotTradingPerpetual {
         symbol: String,
         contract_type: String,
@@ -338,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    fn trading_perpetual_symbol_normalises_to_barter_instrument_with_specs() {
+    fn exchange_info_trading_perpetual_symbol_normalises_to_barter_instrument_with_specs() {
         let actual = serde_json::from_str::<BinanceFuturesExchangeInfo>(exchange_info_fixture())
             .unwrap()
             .symbols
@@ -457,7 +459,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_required_filters_return_deterministic_conversion_error() {
+    fn exchange_info_missing_required_filters_return_deterministic_conversion_error() {
         let symbol = serde_json::from_str::<BinanceFuturesExchangeInfo>(exchange_info_fixture())
             .unwrap()
             .symbols
@@ -486,9 +488,9 @@ mod tests {
         );
 
         let mut missing_min_notional = symbol;
-        missing_min_notional.filters.retain(|filter| {
-            !matches!(filter, BinanceFuturesSymbolFilter::MinNotional(_))
-        });
+        missing_min_notional
+            .filters
+            .retain(|filter| !matches!(filter, BinanceFuturesSymbolFilter::MinNotional(_)));
         assert_eq!(
             missing_min_notional.try_into_usd_m_perpetual_instrument(),
             Err(BinanceFuturesInstrumentError::MissingFilter {
@@ -499,13 +501,14 @@ mod tests {
     }
 
     #[test]
-    fn non_trading_perpetual_returns_conversion_error() {
-        let mut symbol = serde_json::from_str::<BinanceFuturesExchangeInfo>(exchange_info_fixture())
-            .unwrap()
-            .symbols
-            .into_iter()
-            .next()
-            .unwrap();
+    fn exchange_info_non_trading_perpetual_returns_conversion_error() {
+        let mut symbol =
+            serde_json::from_str::<BinanceFuturesExchangeInfo>(exchange_info_fixture())
+                .unwrap()
+                .symbols
+                .into_iter()
+                .next()
+                .unwrap();
         symbol.status = "BREAK".to_owned();
 
         assert!(!symbol.is_trading_perpetual());
