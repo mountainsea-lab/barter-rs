@@ -43,6 +43,9 @@ pub mod instrument;
 /// Open interest REST types and fetcher.
 pub mod open_interest;
 
+/// Taker buy/sell volume REST types and fetcher.
+pub mod taker_flow;
+
 /// Level 2 OrderBook types.
 pub mod l2;
 
