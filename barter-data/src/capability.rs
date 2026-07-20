@@ -88,7 +88,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: WS,
         dynamic_stream: DynamicStreamCapability::Supported,
         history: HistoryCapability::Unsupported,
-        notes: "",
+        notes: "WebSocket public trade stream.",
     },
     DataCapability {
         sub_kind: SubKind::OrderBooksL1,
@@ -96,7 +96,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: WS,
         dynamic_stream: DynamicStreamCapability::Supported,
         history: HistoryCapability::Unsupported,
-        notes: "",
+        notes: "WebSocket best bid/ask stream.",
     },
     DataCapability {
         sub_kind: SubKind::OrderBooksL2,
@@ -104,7 +104,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: WS,
         dynamic_stream: DynamicStreamCapability::Supported,
         history: HistoryCapability::Unsupported,
-        notes: "",
+        notes: "WebSocket order book delta stream with initial snapshot handling.",
     },
     DataCapability {
         sub_kind: SubKind::Candles,
@@ -112,7 +112,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: WS,
         dynamic_stream: DynamicStreamCapability::Supported,
         history: HistoryCapability::Unsupported,
-        notes: "",
+        notes: "WebSocket kline stream.",
     },
     DataCapability {
         sub_kind: SubKind::Liquidations,
@@ -120,7 +120,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: WS,
         dynamic_stream: DynamicStreamCapability::Supported,
         history: HistoryCapability::Unsupported,
-        notes: "",
+        notes: "WebSocket force-order liquidation stream.",
     },
     DataCapability {
         sub_kind: SubKind::MarkPrices,
@@ -128,7 +128,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: WS_REST_FETCH,
         dynamic_stream: DynamicStreamCapability::Supported,
         history: HistoryCapability::LatestOnly,
-        notes: "",
+        notes: "WebSocket mark price stream and latest REST fetch.",
     },
     DataCapability {
         sub_kind: SubKind::IndexPrices,
@@ -136,7 +136,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: WS_REST_FETCH,
         dynamic_stream: DynamicStreamCapability::Supported,
         history: HistoryCapability::LatestOnly,
-        notes: "",
+        notes: "WebSocket index price stream and latest REST fetch.",
     },
     DataCapability {
         sub_kind: SubKind::FundingRates,
@@ -144,7 +144,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: REST_FETCH,
         dynamic_stream: DynamicStreamCapability::Unsupported,
         history: HistoryCapability::HistoricalRange,
-        notes: "",
+        notes: "REST funding rate history fetcher with startTime, endTime, and limit request fields.",
     },
     DataCapability {
         sub_kind: SubKind::OpenInterests,
@@ -152,7 +152,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: REST_FETCH,
         dynamic_stream: DynamicStreamCapability::Unsupported,
         history: HistoryCapability::LatestOnly,
-        notes: "",
+        notes: "REST latest open interest fetcher.",
     },
     DataCapability {
         sub_kind: SubKind::TakerFlows,
@@ -160,7 +160,7 @@ const BINANCE_FUTURES_USD_CAPABILITIES: &[DataCapability] = &[
         transports: REST_FETCH,
         dynamic_stream: DynamicStreamCapability::Unsupported,
         history: HistoryCapability::RecentWindow,
-        notes: "",
+        notes: "REST taker buy/sell volume ratio fetcher with period and limit request fields.",
     },
 ];
 
@@ -168,7 +168,7 @@ const BINANCE_FUTURES_USD_REFERENCE_CAPABILITIES: &[ReferenceCapability] = &[Ref
     data_kind: CapabilityDataKind::Instrument,
     transports: REST_FETCH,
     history: HistoryCapability::LatestOnly,
-    notes: "",
+    notes: "REST exchangeInfo instrument discovery for trading USD-M perpetual contracts.",
 }];
 
 pub const BINANCE_FUTURES_USD_DESCRIPTOR: ProviderCapabilityDescriptor =
@@ -193,11 +193,11 @@ pub fn provider_capability(exchange: ExchangeId) -> Option<&'static ProviderCapa
 
 pub fn supports_capability(
     exchange: ExchangeId,
-    instrument_kind: MarketDataInstrumentKind,
+    instrument_kind: &MarketDataInstrumentKind,
     sub_kind: SubKind,
 ) -> bool {
     provider_capability(exchange).is_some_and(|descriptor| {
-        descriptor.instrument_kinds.contains(&instrument_kind)
+        descriptor.instrument_kinds.contains(instrument_kind)
             && descriptor
                 .capabilities
                 .iter()
